@@ -1,5 +1,5 @@
 CREATE TABLE orders.deliveries (
-  order_uid UUID PRIMARY KEY REFERENCES shop.orders(order_uid) ON DELETE CASCADE,
+  order_uid UUID PRIMARY KEY REFERENCES orders.info(order_uid) ON DELETE CASCADE,
   name TEXT NOT NULL,
   phone TEXT NOT NULL,
   zip TEXT NULL,
