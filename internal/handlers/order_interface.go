@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/rs/zerolog"
-	"github.com/ummuys/level_0/service"
+	"github.com/ummuys/level_0/internal/service"
 )
 
 type OrderHandler interface {

@@ -12,7 +12,7 @@ import (
 
 func NewDatabase(logger *zerolog.Logger) (Database, error) {
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
 	defer cancel()
 
 	var (

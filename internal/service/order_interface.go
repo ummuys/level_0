@@ -2,7 +2,7 @@ package service
 
 import (
 	"github.com/rs/zerolog"
-	"github.com/ummuys/level_0/repository"
+	"github.com/ummuys/level_0/internal/repository"
 )
 
 type OrderService interface {
