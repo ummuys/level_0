@@ -3,8 +3,7 @@
 PRODUCER_APP_PATH=cmd/producer/main.go
 CONSUMER_APP_PATH=cmd/consumer/main.go
 
-DC_DATABASE_PATH=database/docker-compose.yaml
-DC_KAFKA_PATH=kafka/docker-compose.yaml
+DOCKER_COMPOSE_PATH=docker/docker-compose.yaml
 
 
 
@@ -21,20 +20,23 @@ run-consumer-app:
 #------------------------------#
 .PHONY: up-all-containers down-all-containers up-database-container up-kafka-container down-database-container down-kafka-container
 
-down-all-containers: down-database-container down-kafka-container
-up-all-containers: up-database-container up-kafka-container
+down-all-containers: 
+	docker compose -f $(DOCKER_COMPOSE_PATH) down
+
+up-all-containers:
+	docker compose -f $(DOCKER_COMPOSE_PATH) up -d
 
 up-database-container:
-	docker compose -f $(DC_DATABASE_PATH) up -d 
+	docker compose -f $(DOCKER_COMPOSE_PATH) up -d database 
 
 up-kafka-container:
-	docker compose -f $(DC_KAFKA_PATH) up -d 
+	docker compose -f $(DC_KAFKA_PATH) up -d kafka
 
 down-database-container:
-	docker compose -f $(DC_DATABASE_PATH) down
+	docker compose -f $(DOCKER_COMPOSE_PATH) down database
 
 down-kafka-container:
-	docker compose -f $(DC_KAFKA_PATH) down
+	docker compose -f $(DC_KAFKA_PATH) down kafka
 
 
 	

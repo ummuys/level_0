@@ -9,12 +9,12 @@ import (
 	"syscall"
 
 	"github.com/joho/godotenv"
-	"github.com/ummuys/level_0/internal/handlers"
 	"github.com/ummuys/level_0/internal/kafka"
 	"github.com/ummuys/level_0/internal/logger"
 	"github.com/ummuys/level_0/internal/repository"
-	"github.com/ummuys/level_0/internal/server"
 	"github.com/ummuys/level_0/internal/service"
+	web "github.com/ummuys/level_0/internal/web"
+	"github.com/ummuys/level_0/internal/web/handlers"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -47,15 +47,15 @@ func main() {
 	baseLog.Info().Msg("database initialized")
 
 	orderService := service.NewOrderService(db, baseLog)
-	orderHandler := handlers.NewOrderHandler(orderService, baseLog)
+	_ = handlers.NewOrderHandler(orderService, srvLog)
+	serverHandler := handlers.NewServerHandler(srvLog)
 
-	srv := server.InitServer(orderHandler)
-
+	srv := web.InitServer(serverHandler)
 	g, ctx := errgroup.WithContext(mainCtx)
 
 	g.Go(func() error {
 		baseLog.Info().Msg("start the server")
-		return server.RunServer(ctx, srv, srvLog)
+		return web.RunServer(ctx, srv, srvLog)
 	})
 
 	g.Go(func() error {

@@ -1,4 +1,4 @@
-package server
+package http
 
 import (
 	"context"
@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/ummuys/level_0/internal/handlers"
+	"github.com/ummuys/level_0/internal/web/handlers"
 )
 
-func InitServer(oh handlers.OrderHandler) *http.Server {
+func InitServer(sh handlers.ServerHandler) *http.Server {
 	mux := http.NewServeMux()
-	mux.HandleFunc(HealthEndpoint, oh.Health)
+	mux.HandleFunc(HealthEndpoint, sh.Health)
 
 	srv := &http.Server{
 		Addr:              ":" + os.Getenv("APP_PORT"),
