@@ -1,5 +1,5 @@
 CREATE TABLE orders.items (
-  order_uid UUID NOT NULL REFERENCES orders.info(order_uid) ON DELETE CASCADE,
+  order_uid text NOT NULL REFERENCES orders.info(order_uid) ON DELETE CASCADE,
   chrt_id BIGINT NOT NULL,
   price NUMERIC(12,2) NOT NULL,
   rid TEXT NOT NULL,

@@ -86,6 +86,9 @@ func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.Or
 		//TODO: сделать красивый коммит
 		var hadErr bool
 		for _, rec := range fetches.Records() {
+			logger.Info().
+				Str("key", string(rec.Key)).
+				Msg("catch new order")
 			if err := processOrder(pCtx, rec.Value, orderService); err != nil {
 				hadErr = true
 				logger.Error().
@@ -93,7 +96,12 @@ func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.Or
 					Str("key", string(rec.Key)).
 					Msg("can't create a order")
 
+			} else {
+				logger.Info().
+					Str("key", string(rec.Key)).
+					Msg("order successfuly created")
 			}
+
 		}
 
 		if !hadErr {

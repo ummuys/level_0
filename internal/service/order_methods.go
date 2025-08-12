@@ -15,6 +15,5 @@ func NewOrderService(db repository.OrderDB, logger *zerolog.Logger) OrderService
 }
 
 func (ordS orderService) Create(pCtx context.Context, orderRawData []byte) error {
-	ordS.db.Create(pCtx, orderRawData)
-	return nil
+	return ordS.db.Create(pCtx, orderRawData)
 }

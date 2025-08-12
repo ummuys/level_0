@@ -12,6 +12,7 @@ import (
 
 func NewOrderDatabase(logger *zerolog.Logger) (OrderDB, error) {
 
+	//TODO:: change CTX
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
 	defer cancel()
 
@@ -61,17 +62,15 @@ func (odb *odbPg) Create(pCtx context.Context, orderRawData []byte) error {
 		return err
 	}
 
-	b := &pgx.Batch{}
-	b.Queue(`select orders.insert_order($1::jsonb)`, orderRawData)
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
 
-	bs := tx.SendBatch(ctx, b)
+	query := `select orders.insert_order($1::jsonb)`
 
-	if _, err := bs.Exec(); err != nil {
-		_ = bs.Close()
-		return err
-	}
-
-	if err := bs.Close(); err != nil {
+	if _, err := tx.Exec(ctx, query, orderRawData); err != nil {
 		return err
 	}
 

@@ -1,5 +1,5 @@
 CREATE TABLE orders.info (
-    order_uid UUID primary key
+    order_uid text primary key,
     track_number text NOT NULL,
     entry text NOT NULL,
     locale text NOT NULL,

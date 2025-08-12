@@ -1,5 +1,5 @@
 CREATE TABLE orders.payments (
-    order_uid UUID primary key references orders.info(order_uid) ON DELETE CASCADE,
+    order_uid text primary key references orders.info(order_uid) ON DELETE CASCADE,
     transaction_id TEXT NOT NULL,
     request_id TEXT NULL,
     currency CHAR(3) NOT NULL,
