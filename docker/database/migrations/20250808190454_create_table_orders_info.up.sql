@@ -1,5 +1,5 @@
 CREATE TABLE orders.info (
-    order_uid UUID primary key references orders.info(order_uid) ON DELETE CASCADE,
+    order_uid UUID primary key
     track_number text NOT NULL,
     entry text NOT NULL,
     locale text NOT NULL,

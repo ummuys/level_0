@@ -3,13 +3,32 @@ package kafka
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/ummuys/level_0/internal/service"
+	"github.com/ummuys/level_0/internal/validation"
 )
 
-func Kafka(ctx context.Context, logger *zerolog.Logger) error {
+func processOrder(pCtx context.Context, orderRawData []byte, orderService service.OrderService) error {
+
+	order, err := validation.DecodeOrder(orderRawData)
+
+	if err != nil {
+		return fmt.Errorf("decode err: %w", err)
+	}
+
+	if err := validation.Validate(order); err != nil {
+		return fmt.Errorf("validate err: %w", err)
+	}
+
+	return orderService.Create(pCtx, orderRawData)
+}
+
+func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.OrderService) error {
 
 	broker := os.Getenv("KAFKA_BROKER")
 	topic := os.Getenv("KAFKA_TOPIC")
@@ -17,17 +36,18 @@ func Kafka(ctx context.Context, logger *zerolog.Logger) error {
 
 	if broker == "" || topic == "" || group == "" {
 		logger.Error().
-			Str("KAFKA_BROKERS", broker).
+			Str("KAFKA_BROKER", broker).
 			Str("KAFKA_TOPIC", topic).
 			Str("KAFKA_GROUP", group).
 			Msg("missing required env vars")
-		return errors.New("kafka: KAFKA_BROKERS, KAFKA_TOPIC, KAFKA_GROUP are required")
+		return errors.New("kafka: KAFKA_BROKER, KAFKA_TOPIC, KAFKA_GROUP are required")
 	}
 
 	cl, err := kgo.NewClient(
 		kgo.SeedBrokers(broker),
 		kgo.ConsumerGroup(group),
 		kgo.ConsumeTopics(topic),
+		kgo.DisableAutoCommit(),
 	)
 
 	if err != nil {
@@ -47,11 +67,11 @@ func Kafka(ctx context.Context, logger *zerolog.Logger) error {
 
 	for {
 
-		fetches := cl.PollFetches(ctx)
+		fetches := cl.PollFetches(pCtx)
 
-		if ctx.Err() != nil {
+		if pCtx.Err() != nil {
 			logger.Info().Msg("close kafka routine")
-			return nil
+			break
 		}
 
 		for _, fe := range fetches.Errors() {
@@ -63,14 +83,32 @@ func Kafka(ctx context.Context, logger *zerolog.Logger) error {
 			}
 		}
 
+		//TODO: сделать красивый коммит
+		var hadErr bool
 		for _, rec := range fetches.Records() {
-			logger.Info().
-				Str("topic", rec.Topic).
-				Int32("partition", rec.Partition).
-				Int64("offset", rec.Offset).
-				Str("key", string(rec.Key)).
-				Bytes("value", rec.Value).
-				Msg("new msg")
+			if err := processOrder(pCtx, rec.Value, orderService); err != nil {
+				hadErr = true
+				logger.Error().
+					Err(err).
+					Str("key", string(rec.Key)).
+					Msg("can't create a order")
+
+			}
+		}
+
+		if !hadErr {
+			if err := cl.CommitUncommittedOffsets(pCtx); err != nil {
+				logger.Error().
+					Err(err).
+					Msg("commit failed")
+			}
 		}
 	}
+
+	fCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := cl.CommitUncommittedOffsets(fCtx); err != nil {
+		logger.Warn().Err(err).Msg("final commit failed")
+	}
+	return nil
 }

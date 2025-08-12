@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func NewDatabase(logger *zerolog.Logger) (Database, error) {
+func NewOrderDatabase(logger *zerolog.Logger) (OrderDB, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
 	defer cancel()
@@ -35,18 +35,49 @@ func NewDatabase(logger *zerolog.Logger) (Database, error) {
 		return nil, fmt.Errorf("db didn't pinged: %w", err)
 	}
 
-	return &dbPg{
+	return &odbPg{
 		conn:   conn,
 		logger: logger,
 	}, nil
 
 }
 
-func (db *dbPg) Close() error {
+func (odb *odbPg) Close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	if err := db.conn.Close(ctx); err != nil {
+	if err := odb.conn.Close(ctx); err != nil {
 		return fmt.Errorf("can't close db conn: %v", err)
 	}
+	return nil
+}
+
+func (odb *odbPg) Create(pCtx context.Context, orderRawData []byte) error {
+
+	ctx, cancel := context.WithTimeout(pCtx, 5*time.Second)
+	defer cancel()
+
+	tx, err := odb.conn.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return err
+	}
+
+	b := &pgx.Batch{}
+	b.Queue(`select orders.insert_order($1::jsonb)`, orderRawData)
+
+	bs := tx.SendBatch(ctx, b)
+
+	if _, err := bs.Exec(); err != nil {
+		_ = bs.Close()
+		return err
+	}
+
+	if err := bs.Close(); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (odb *odbPg) Get(pCtx context.Context, oUID string) error {
 	return nil
 }

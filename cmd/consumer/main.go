@@ -37,7 +37,7 @@ func main() {
 	baseLog.Info().Msg("-------------- LEVEL 0 BY UMMUYS -----------------")
 	baseLog.Info().Msg("--------------------------------------------------")
 
-	db, err := repository.NewDatabase(baseLog)
+	orderDB, err := repository.NewOrderDatabase(baseLog)
 	if err != nil {
 		baseLog.Fatal().
 			Err(err).
@@ -46,7 +46,7 @@ func main() {
 	}
 	baseLog.Info().Msg("database initialized")
 
-	orderService := service.NewOrderService(db, baseLog)
+	orderService := service.NewOrderService(orderDB, baseLog)
 	_ = handlers.NewOrderHandler(orderService, srvLog)
 	serverHandler := handlers.NewServerHandler(srvLog)
 
@@ -60,7 +60,7 @@ func main() {
 
 	g.Go(func() error {
 		baseLog.Info().Msg("start the kafka")
-		return kafka.Kafka(ctx, kfkLog)
+		return kafka.Kafka(ctx, kfkLog, orderService)
 	})
 
 	gErr := g.Wait()
@@ -70,7 +70,7 @@ func main() {
 			Msg("")
 	}
 
-	dbErr := db.Close()
+	dbErr := orderDB.Close()
 	if dbErr != nil {
 		baseLog.Error().
 			Err(dbErr).
