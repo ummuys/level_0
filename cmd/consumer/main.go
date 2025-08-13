@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/ummuys/level_0/internal/cache"
@@ -48,11 +47,16 @@ func main() {
 	}
 	appLog.Info().Msg("database initialized")
 
-	orderService := service.NewOrderService(orderDB, appLog)
+	orderCache, err := cache.NewOrderCache(orderDB, cchLog)
+	if err != nil {
+		appLog.Fatal().
+			Err(err).
+			Msg("")
+	}
+
+	orderService := service.NewOrderService(orderDB, orderCache, appLog)
 	_ = handlers.NewOrderHandler(orderService, srvLog)
 	serverHandler := handlers.NewServerHandler(srvLog)
-
-	cache := cache.NewOrderCache(orderDB, 10, 5*time.Second, cchLog)
 
 	srv := web.InitServer(serverHandler)
 	g, ctx := errgroup.WithContext(mainCtx)
@@ -64,7 +68,7 @@ func main() {
 
 	g.Go(func() error {
 		appLog.Info().Msg("start the kafka")
-		return kafka.Kafka(ctx, kfkLog, orderService, cache)
+		return kafka.Kafka(ctx, kfkLog, orderService)
 	})
 
 	gErr := g.Wait()
