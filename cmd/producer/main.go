@@ -11,7 +11,7 @@ import (
 )
 
 const orderJSON = `{
-   "order_uid": "b563feb7b2b84b6test",
+   "order_uid": "adsfasasdffffasdfadsfdf",
    "track_number": "WBILMTESTTRACK",
    "entry": "WBIL",
    "delivery": {
@@ -93,7 +93,7 @@ func main() {
 
 	rec := &kgo.Record{
 		Topic: topic,
-		Key:   []byte("b563feb7b2b84b6test"),
+		Key:   []byte("sdfgsdfg"),
 		Value: []byte(orderJSON),
 		Headers: []kgo.RecordHeader{
 			{Key: "content-type", Value: []byte("application/json")},

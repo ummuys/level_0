@@ -52,31 +52,50 @@ func (odb *odbPg) Close() error {
 	return nil
 }
 
-func (odb *odbPg) Create(pCtx context.Context, orderRawData []byte) error {
+func (odb *odbPg) Create(pCtx context.Context, orderRawData []byte) (err error) {
+	odb.logger.Debug().Msg("call Create method in OrderDB")
 
-	ctx, cancel := context.WithTimeout(pCtx, 5*time.Second)
-	defer cancel()
+	txCtx, txCancel := context.WithTimeout(pCtx, 7*time.Second)
+	defer txCancel()
 
-	tx, err := odb.conn.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	var tx pgx.Tx
+
+	tx, err = odb.conn.BeginTx(txCtx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
-		return err
+		err = fmt.Errorf("can't begin a tx: %w", err)
+		return
 	}
 
 	defer func() {
 		if err != nil {
-			_ = tx.Rollback(ctx)
+			_ = tx.Rollback(context.Background())
 		}
 	}()
 
 	query := `select orders.insert_order($1::jsonb)`
 
-	if _, err := tx.Exec(ctx, query, orderRawData); err != nil {
-		return err
+	_, err = tx.Exec(txCtx, query, orderRawData)
+	if err != nil {
+		err = fmt.Errorf("can't exec a query: %w", err)
+		return
 	}
 
-	return tx.Commit(ctx)
+	if err = txCtx.Err(); err != nil {
+		return fmt.Errorf("tx deadline: %w", err)
+	}
+
+	cmtCtx, cmtCancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cmtCancel()
+	err = tx.Commit(cmtCtx)
+	if err != nil {
+		err = fmt.Errorf("can't commit a tx: %w", err)
+		return
+	}
+
+	return nil
 }
 
-func (odb *odbPg) Get(pCtx context.Context, oUID string) error {
-	return nil
+func (odb *odbPg) Get(pCtx context.Context, oUID string) ([]byte, error) {
+	odb.logger.Debug().Msg("call Get method in OrderDB")
+	return nil, nil
 }

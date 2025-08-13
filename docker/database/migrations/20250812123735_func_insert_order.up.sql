@@ -17,7 +17,7 @@ AS $$
 
 
         -- payments
-        INSERT INTO orders.payments(order_uid, transaction_id, request_id, currency, provider,
+        INSERT INTO orders.payments (order_uid, transaction_id, request_id, currency, provider,
                                      amount, payment_dt, bank, delivery_cost, goods_total, custom_fee)
         VALUES (oUID,
         data#>>'{payment,transaction}', data#>>'{payment,request_id}', data#>>'{payment,currency}',
@@ -27,7 +27,7 @@ AS $$
         (data#>>'{payment,custom_fee}')::int);
 
         -- deliveries
-        INSERT INTO orders.deliveries (order_id, name, phone, zip, city, address, region, email)
+        INSERT INTO orders.deliveries (order_uid, name, phone, zip, city, address, region, email)
         VALUES (oUID,
           data#>>'{delivery,name}', data#>>'{delivery,phone}', data#>>'{delivery,zip}',
           data#>>'{delivery,city}', data#>>'{delivery,address}', data#>>'{delivery,region}',
@@ -35,12 +35,12 @@ AS $$
 
 
         -- items
-        INSERT INTO orders.items (order_id, chrt_id, track_number, price, rid, name, sale, size,
+        INSERT INTO orders.items (order_uid, chrt_id, track_number, price, rid, name, sale, size,
                                  total_price, nm_id, brand, status)
         SELECT oUID,
-         (items->>'chrt_id')::int, items->>'track_number', (items->>'price')::int,
+         (items->>'chrt_id')::bigint, items->>'track_number', (items->>'price')::int,
          items->>'rid', items->>'name', (items->>'sale')::int, items->>'size',
-         (items->>'total_price')::int, (items->>'nm_id')::int, items->>'brand', (items->>'status')::int
+         (items->>'total_price')::int, (items->>'nm_id')::bigint, items->>'brand', (items->>'status')::smallint
         FROM jsonb_array_elements(data->'items') items;
 
         RETURN oUID;

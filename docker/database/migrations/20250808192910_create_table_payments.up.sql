@@ -4,10 +4,10 @@ CREATE TABLE orders.payments (
     request_id TEXT NULL,
     currency CHAR(3) NOT NULL,
     provider TEXT NOT NULL,
-    amount NUMERIC(12,2) NOT NULL,
-    payment_dt TIMESTAMPTZ NOT NULL,
+    amount int NOT NULL,
+    payment_dt bigint NOT NULL,
     bank TEXT NOT NULL,
-    delivery_cost NUMERIC(12,2) NOT NULL,
-    goods_total NUMERIC(12,2) NOT NULL,
-    custom_fee NUMERIC(12,2) NOT NULL
+    delivery_cost integer NOT NULL,
+    goods_total integer NOT NULL,
+    custom_fee integer NOT NULL
 )

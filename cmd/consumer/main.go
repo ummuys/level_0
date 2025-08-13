@@ -7,8 +7,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/ummuys/level_0/internal/cache"
 	"github.com/ummuys/level_0/internal/kafka"
 	"github.com/ummuys/level_0/internal/logger"
 	"github.com/ummuys/level_0/internal/repository"
@@ -28,59 +30,61 @@ func main() {
 		log.Fatal("no env file: ", err)
 	}
 
-	baseLog, kfkLog, srvLog, err := logger.InitLogger(os.Getenv("LOGS_PATH"))
+	appLog, kfkLog, srvLog, cchLog, err := logger.InitLogger(os.Getenv("LOGS_PATH"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	baseLog.Info().Msg("--------------------------------------------------")
-	baseLog.Info().Msg("-------------- LEVEL 0 BY UMMUYS -----------------")
-	baseLog.Info().Msg("--------------------------------------------------")
+	appLog.Info().Msg("--------------------------------------------------")
+	appLog.Info().Msg("-------------- LEVEL 0 BY UMMUYS -----------------")
+	appLog.Info().Msg("--------------------------------------------------")
 
-	orderDB, err := repository.NewOrderDatabase(baseLog)
+	orderDB, err := repository.NewOrderDatabase(appLog)
 	if err != nil {
-		baseLog.Fatal().
+		appLog.Fatal().
 			Err(err).
 			Msg("")
 
 	}
-	baseLog.Info().Msg("database initialized")
+	appLog.Info().Msg("database initialized")
 
-	orderService := service.NewOrderService(orderDB, baseLog)
+	orderService := service.NewOrderService(orderDB, appLog)
 	_ = handlers.NewOrderHandler(orderService, srvLog)
 	serverHandler := handlers.NewServerHandler(srvLog)
+
+	cache := cache.NewOrderCache(orderDB, 10, 5*time.Second, cchLog)
 
 	srv := web.InitServer(serverHandler)
 	g, ctx := errgroup.WithContext(mainCtx)
 
 	g.Go(func() error {
-		baseLog.Info().Msg("start the server")
+		appLog.Info().Msg("start the server")
 		return web.RunServer(ctx, srv, srvLog)
 	})
 
 	g.Go(func() error {
-		baseLog.Info().Msg("start the kafka")
-		return kafka.Kafka(ctx, kfkLog, orderService)
+		appLog.Info().Msg("start the kafka")
+		return kafka.Kafka(ctx, kfkLog, orderService, cache)
 	})
 
 	gErr := g.Wait()
 	if gErr != nil && !errors.Is(gErr, context.Canceled) {
-		baseLog.Error().
+		appLog.Error().
 			Err(gErr).
 			Msg("")
 	}
 
 	dbErr := orderDB.Close()
 	if dbErr != nil {
-		baseLog.Error().
+		appLog.Error().
 			Err(dbErr).
 			Msg("database close error")
 	}
 
 	if dbErr != nil || gErr != nil {
-		baseLog.Error().
+		appLog.Error().
 			Msg("shutdown with errors")
 	} else {
-		baseLog.Info().Msg("server shutdown gracefully")
+		appLog.Info().Msg("server shutdown gracefully")
 	}
 }

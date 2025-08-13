@@ -9,7 +9,7 @@ import (
 
 type OrderDB interface {
 	Create(pCtx context.Context, orderRawData []byte) error
-	Get(pCtx context.Context, oUID string) error
+	Get(pCtx context.Context, oUID string) ([]byte, error)
 	Close() error
 }
 

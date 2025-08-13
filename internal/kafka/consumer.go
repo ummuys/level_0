@@ -9,26 +9,46 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/ummuys/level_0/internal/cache"
 	"github.com/ummuys/level_0/internal/service"
 	"github.com/ummuys/level_0/internal/validation"
 )
 
-func processOrder(pCtx context.Context, orderRawData []byte, orderService service.OrderService) error {
+func CheckMap(ctx context.Context, logger *zerolog.Logger, cache *cache.OrderCache, orderUID string, info []byte) {
+	info, err := cache.Get(ctx, orderUID)
+	if err != nil {
+		logger.
+			Err(err).
+			Msg("problem with map")
+
+	}
+	logger.Info().
+		Str("info", string(info)).
+		Msg("all good")
+
+}
+
+func processOrder(pCtx context.Context, orderRawData []byte, orderService service.OrderService) (string, error) {
 
 	order, err := validation.DecodeOrder(orderRawData)
 
 	if err != nil {
-		return fmt.Errorf("decode err: %w", err)
+		return "", fmt.Errorf("decode err: %w", err)
 	}
 
-	if err := validation.Validate(order); err != nil {
-		return fmt.Errorf("validate err: %w", err)
+	UID, err := validation.Validate(order)
+	if err != nil {
+		return "", fmt.Errorf("validate err: %w", err)
 	}
 
-	return orderService.Create(pCtx, orderRawData)
+	if err = orderService.Create(pCtx, orderRawData); err != nil {
+		return "", err
+	}
+
+	return UID, nil
 }
 
-func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.OrderService) error {
+func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.OrderService, cache *cache.OrderCache) error {
 
 	broker := os.Getenv("KAFKA_BROKER")
 	topic := os.Getenv("KAFKA_TOPIC")
@@ -89,7 +109,7 @@ func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.Or
 			logger.Info().
 				Str("key", string(rec.Key)).
 				Msg("catch new order")
-			if err := processOrder(pCtx, rec.Value, orderService); err != nil {
+			if orderKey, err := processOrder(pCtx, rec.Value, orderService); err != nil {
 				hadErr = true
 				logger.Error().
 					Err(err).
@@ -97,9 +117,11 @@ func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.Or
 					Msg("can't create a order")
 
 			} else {
+				cache.Set(orderKey, rec.Value)
 				logger.Info().
 					Str("key", string(rec.Key)).
 					Msg("order successfuly created")
+				CheckMap(pCtx, logger, cache, orderKey, rec.Value)
 			}
 
 		}

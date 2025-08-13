@@ -9,5 +9,5 @@ CREATE TABLE orders.info (
     shardkey text NOT NULL,
     sm_id int NOT NULL,
     date_created TIMESTAMPTZ NOT NULL,
-    oof_shard int NOT NULL
+    oof_shard text NOT NULL
 );

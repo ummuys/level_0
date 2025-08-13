@@ -20,7 +20,7 @@ func DecodeOrder(b []byte) (models.OrderData, error) {
 	return od, nil
 }
 
-func Validate(od models.OrderData) error {
+func Validate(od models.OrderData) (string, error) {
 	var sErr []string
 
 	if od.OrderUID == "" {
@@ -75,7 +75,7 @@ func Validate(od models.OrderData) error {
 	}
 
 	if len(sErr) > 0 {
-		return fmt.Errorf(strings.Join(sErr, ", "))
+		return "", fmt.Errorf(strings.Join(sErr, ", "))
 	}
-	return nil
+	return od.OrderUID, nil
 }

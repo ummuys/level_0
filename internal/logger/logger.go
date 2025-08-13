@@ -4,11 +4,42 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/rs/zerolog"
 )
 
-func InitLogger(path string) (*zerolog.Logger, *zerolog.Logger, *zerolog.Logger, error) {
+func ParseLevel() (zerolog.Level, zerolog.Level, zerolog.Level, zerolog.Level, error) {
+	var sErr []string
+
+	appLvl, err := zerolog.ParseLevel(os.Getenv("LOG_LEVEL_APP"))
+	if err != nil {
+		sErr = append(sErr, "invalid level for app")
+	}
+
+	srvLvl, err := zerolog.ParseLevel(os.Getenv("LOG_SERVER_APP"))
+	if err != nil {
+		sErr = append(sErr, "invalid level for server")
+	}
+
+	kfkLvl, err := zerolog.ParseLevel(os.Getenv("LOG_LEVEL_KAFKA"))
+	if err != nil {
+		sErr = append(sErr, "invalid level for kafka")
+	}
+
+	cchLvl, err := zerolog.ParseLevel(os.Getenv("LOG_LEVEL_CACHE"))
+	if err != nil {
+		sErr = append(sErr, "invalid level for cache")
+	}
+
+	if len(sErr) > 0 {
+		return 0, 0, 0, 0, fmt.Errorf(strings.Join(sErr, ", "))
+	}
+
+	return appLvl, srvLvl, kfkLvl, cchLvl, nil
+}
+
+func InitLogger(path string) (*zerolog.Logger, *zerolog.Logger, *zerolog.Logger, *zerolog.Logger, error) {
 
 	//STD-OUT
 	file := initLogFile(path)
@@ -18,16 +49,15 @@ func InitLogger(path string) (*zerolog.Logger, *zerolog.Logger, *zerolog.Logger,
 
 	baseLog := zerolog.New(multiWriter).With().Timestamp().Logger()
 
-	lvlStr := os.Getenv("LOG_LEVEL") // example: "debug", "info", "error"
-
-	lvl, err := zerolog.ParseLevel(lvlStr)
+	appLvl, srvlvl, kfkLvl, cchLvl, err := ParseLevel()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("invalid LOG_LEVEL: %v", err)
+		return nil, nil, nil, nil, err
 	}
-	zerolog.SetGlobalLevel(lvl)
 
-	kfkLog := baseLog.With().Str("component", "kafka").Logger()
-	srvLog := baseLog.With().Str("component", "server").Logger()
+	appLog := baseLog.With().Str("component", "app").Logger().Level(appLvl)
+	kfkLog := baseLog.With().Str("component", "kafka").Logger().Level(kfkLvl)
+	srvLog := baseLog.With().Str("component", "server").Logger().Level(srvlvl)
+	cchLog := baseLog.With().Str("component", "cache").Logger().Level(cchLvl)
 
-	return &baseLog, &kfkLog, &srvLog, nil
+	return &appLog, &kfkLog, &srvLog, &cchLog, nil
 }

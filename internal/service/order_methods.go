@@ -15,5 +15,11 @@ func NewOrderService(db repository.OrderDB, logger *zerolog.Logger) OrderService
 }
 
 func (ordS orderService) Create(pCtx context.Context, orderRawData []byte) error {
-	return ordS.db.Create(pCtx, orderRawData)
+	err := ordS.db.Create(pCtx, orderRawData)
+	if err != nil {
+		ordS.logger.Error().
+			Err(err).
+			Msg("db err")
+	}
+	return err
 }
