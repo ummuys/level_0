@@ -10,8 +10,8 @@ import (
 
 type OrderDB interface {
 	Create(pCtx context.Context, orderRawData []byte) error
-	Get(pCtx context.Context, oUID string) (models.OrderData, error)
-	GetN(pCtx context.Context, n int) ([][]byte, error)
+	Get(pCtx context.Context, oUID string) (models.OrderDataDb, error)
+	GetN(pCtx context.Context, n int) ([]models.OrderDataDb, error)
 	Close() error
 }
 

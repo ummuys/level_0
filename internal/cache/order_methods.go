@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/ummuys/level_0/internal/models"
 	"github.com/ummuys/level_0/internal/repository"
 )
 
@@ -136,11 +135,8 @@ func (ordC *orderCache) fillCache(pCtx context.Context) error {
 	}
 
 	i := 0
-	for _, oB := range orders {
-
-		//TODO: FIIIIX THIS
-		var o models.OrderData
-		err := json.Unmarshal(oB, &o)
+	for _, o := range orders {
+		oB, err := json.Marshal(o)
 		if err != nil {
 			return fmt.Errorf("can't unmarshall orders: %w", err)
 		}

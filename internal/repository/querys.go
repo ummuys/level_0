@@ -2,29 +2,62 @@ package repository
 
 import "fmt"
 
-const queryGetN = `
-SELECT jsonb_agg(order_json) AS orders
-FROM (
-  SELECT
-    ( to_jsonb(i)
-      ||
-      jsonb_build_object(
-        'payment',  to_jsonb(p) - 'order_uid',
-        'delivery', to_jsonb(d) - 'order_uid',
-        'items', COALESCE(
-          (
-            SELECT jsonb_agg(to_jsonb(it) - 'order_uid' ORDER BY it.chrt_id)
-            FROM orders.items it
-            WHERE it.order_uid = i.order_uid
-          ),
-          '[]'::jsonb
-        )
-      )
-    ) AS order_json
-  FROM orders.info i
-  JOIN orders.payments  p on i.order_uid = p.order_uid
-  JOIN orders.deliveries d on i.order_uid = d.order_uid
+const (
+	queryGetN = `
+	SELECT
+  i.order_uid,
+  i.track_number,
+  i.entry,
+  i.locale,
+  i.internal_signature,
+  i.customer_id,
+  i.delivery_service,
+  i.shardkey,
+  i.sm_id,
+  i.date_created,
+  i.oof_shard,
+
+  p.transaction,
+  p.request_id,
+  p.currency,
+  p.provider,
+  p.amount,
+  p.payment_dt,
+  p.bank,
+  p.delivery_cost,
+  p.goods_total,
+  p.custom_fee,
+
+  d.name,
+  d.phone,
+  d.zip,
+  d.city,
+  d.address,
+  d.region,
+  d.email
+  
+FROM orders.info i
+JOIN orders.payments  p ON i.order_uid = p.order_uid
+JOIN orders.deliveries d ON i.order_uid = d.order_uid
 `
+
+	querySelectItems = `
+  SELECT
+    chrt_id,
+    track_number,
+    price,
+    rid,
+    name,
+    sale,
+    size,
+    total_price,
+    nm_id,
+    brand,
+    status
+  FROM orders.items
+  WHERE order_uid = $1
+  `
+)
 
 func createQueryGetN(oUID string, n int) (string, []any) {
 	query := queryGetN
@@ -40,6 +73,5 @@ func createQueryGetN(oUID string, n int) (string, []any) {
 		query += fmt.Sprintf(" LIMIT $%d", i)
 		i++
 	}
-	query += ` ) query;`
 	return query, args
 }

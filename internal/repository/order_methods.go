@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/jackc/pgx/v5"
 	"github.com/rs/zerolog"
 	"github.com/ummuys/level_0/internal/models"
@@ -97,7 +98,7 @@ func (odb *odbPg) Create(pCtx context.Context, orderRawData []byte) (err error) 
 	return nil
 }
 
-func (odb *odbPg) Get(pCtx context.Context, oUID string) (models.OrderData, error) {
+func (odb *odbPg) Get(pCtx context.Context, oUID string) (models.OrderDataDb, error) {
 	odb.logger.Debug().Msg("call Get method in OrderDB")
 
 	ctx, cancel := context.WithTimeout(pCtx, time.Second*5)
@@ -105,36 +106,74 @@ func (odb *odbPg) Get(pCtx context.Context, oUID string) (models.OrderData, erro
 
 	query, args := createQueryGetN(oUID, 0)
 
-	orderData := models.OrderData{}
-	err := odb.conn.QueryRow(ctx, query, args...).Scan(&orderData)
+	o := models.OrderDataDb{}
+	err := pgxscan.Get(ctx, odb.conn, &o, query, args...)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return models.OrderData{}, fmt.Errorf("can't exec a query row: %w", err)
+		return models.OrderDataDb{}, fmt.Errorf("can't exec a query row: %w", err)
 	}
 
-	return orderData, nil
+	items, err := odb.scanItems(ctx, o.OrderUID)
+	if err != nil {
+		return models.OrderDataDb{}, err
+	}
+	o.Items = append(o.Items, items...)
+
+	return o, nil
 }
 
-func (odb *odbPg) GetN(pCtx context.Context, n int) ([][]byte, error) {
+// func (odb *odbPg) GetN(pCtx context.Context, n int) ([]models.OrderData, error) {
+// 	ctx, cancel := context.WithTimeout(pCtx, time.Second*10)
+// 	defer cancel()
+
+// 	query, args := createQueryGetN("", n)
+
+// 	rows, err := odb.conn.Query(ctx, query, args...)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("can't exec query: %w", err)
+// 	}
+// 	defer rows.Close()
+
+// 	var orders []models.OrderData
+
+// 	for rows.Next() {
+// 		o, err := pgx.RowToStructByName[models.OrderData](rows)
+// 		if err != nil {
+// 			return nil, fmt.Errorf("can't scan in query rows: %w", err)
+// 		}
+
+// 		items, err := odb.scanItems(ctx, o.OrderUID)
+// 		if err != nil {
+// 			return []models.OrderData{}, err
+// 		}
+
+// 		o.Items = append(o.Items, items...)
+// 		orders = append(orders, o)
+// 	}
+
+// 	return orders, nil
+// }
+
+func (odb *odbPg) GetN(pCtx context.Context, n int) ([]models.OrderDataDb, error) {
 	ctx, cancel := context.WithTimeout(pCtx, time.Second*10)
 	defer cancel()
 
 	query, args := createQueryGetN("", n)
 
-	rows, err := odb.conn.Query(ctx, query, args...)
+	var orders []models.OrderDataDb
+
+	err := pgxscan.Select(ctx, odb.conn, &orders, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("can't exec query: %w", err)
+		return nil, err
 	}
-	defer rows.Close()
 
-	var orders [][]byte
-
-	for rows.Next() {
-		var o []byte
-		err := rows.Scan(&o)
+	for _, o := range orders {
+		items, err := odb.scanItems(ctx, o.OrderUID)
 		if err != nil {
-			return nil, fmt.Errorf("can't scan query rows: %w", err)
+			return []models.OrderDataDb{}, err
 		}
+		o.Items = append(o.Items, items...)
 		orders = append(orders, o)
 	}
+
 	return orders, nil
 }
