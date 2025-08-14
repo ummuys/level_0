@@ -47,18 +47,18 @@ func main() {
 	}
 	appLog.Info().Msg("database initialized")
 
-	orderCache, err := cache.NewOrderCache(orderDB, cchLog)
+	orderCache, err := cache.NewOrderCache(mainCtx, orderDB, cchLog)
 	if err != nil {
 		appLog.Fatal().
 			Err(err).
 			Msg("")
 	}
 
-	orderService := service.NewOrderService(orderDB, orderCache, appLog)
-	_ = handlers.NewOrderHandler(orderService, srvLog)
+	orderService := service.NewOrderService(mainCtx, orderDB, orderCache, appLog)
+	orderHandler := handlers.NewOrderHandler(orderService, srvLog)
 	serverHandler := handlers.NewServerHandler(srvLog)
 
-	srv := web.InitServer(serverHandler)
+	srv := web.InitServer(serverHandler, orderHandler)
 	g, ctx := errgroup.WithContext(mainCtx)
 
 	g.Go(func() error {

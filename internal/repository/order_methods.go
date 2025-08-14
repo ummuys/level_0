@@ -2,12 +2,14 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/rs/zerolog"
+	"github.com/ummuys/level_0/internal/models"
 )
 
 func NewOrderDatabase(logger *zerolog.Logger) (OrderDB, error) {
@@ -95,7 +97,44 @@ func (odb *odbPg) Create(pCtx context.Context, orderRawData []byte) (err error) 
 	return nil
 }
 
-func (odb *odbPg) Get(pCtx context.Context, oUID string) ([]byte, error) {
+func (odb *odbPg) Get(pCtx context.Context, oUID string) (models.OrderData, error) {
 	odb.logger.Debug().Msg("call Get method in OrderDB")
-	return nil, nil
+
+	ctx, cancel := context.WithTimeout(pCtx, time.Second*5)
+	defer cancel()
+
+	query, args := createQueryGetN(oUID, 0)
+
+	orderData := models.OrderData{}
+	err := odb.conn.QueryRow(ctx, query, args...).Scan(&orderData)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return models.OrderData{}, fmt.Errorf("can't exec a query row: %w", err)
+	}
+
+	return orderData, nil
+}
+
+func (odb *odbPg) GetN(pCtx context.Context, n int) ([][]byte, error) {
+	ctx, cancel := context.WithTimeout(pCtx, time.Second*10)
+	defer cancel()
+
+	query, args := createQueryGetN("", n)
+
+	rows, err := odb.conn.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("can't exec query: %w", err)
+	}
+	defer rows.Close()
+
+	var orders [][]byte
+
+	for rows.Next() {
+		var o []byte
+		err := rows.Scan(&o)
+		if err != nil {
+			return nil, fmt.Errorf("can't scan query rows: %w", err)
+		}
+		orders = append(orders, o)
+	}
+	return orders, nil
 }

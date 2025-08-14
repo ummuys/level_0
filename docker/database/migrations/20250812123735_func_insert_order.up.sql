@@ -17,7 +17,7 @@ AS $$
 
 
         -- payments
-        INSERT INTO orders.payments (order_uid, transaction_id, request_id, currency, provider,
+        INSERT INTO orders.payments (order_uid, transaction, request_id, currency, provider,
                                      amount, payment_dt, bank, delivery_cost, goods_total, custom_fee)
         VALUES (oUID,
         data#>>'{payment,transaction}', data#>>'{payment,request_id}', data#>>'{payment,currency}',

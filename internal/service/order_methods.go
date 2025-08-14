@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/rs/zerolog"
@@ -11,7 +12,7 @@ import (
 	"github.com/ummuys/level_0/internal/validation"
 )
 
-func NewOrderService(db repository.OrderDB, cache cache.OrderCache, logger *zerolog.Logger) OrderService {
+func NewOrderService(pCtx context.Context, db repository.OrderDB, cache cache.OrderCache, logger *zerolog.Logger) OrderService {
 	return &orderService{
 		db:     db,
 		cache:  cache,
@@ -28,9 +29,6 @@ func (ordS *orderService) Create(pCtx context.Context, orderRawData []byte, orde
 
 	err = ordS.db.Create(pCtx, orderRawData)
 	if err != nil {
-		ordS.logger.Error().
-			Err(err).
-			Msg("db err")
 		return err
 	}
 
@@ -49,13 +47,16 @@ func (ordS *orderService) Get(pCtx context.Context, key string) ([]byte, error) 
 
 	dbInfo, err := ordS.db.Get(pCtx, key)
 	if err != nil {
-		ordS.logger.Error().
-			Err(err).
-			Msg("db err")
 		return nil, err
 	}
 
-	ordS.cache.Set(key, dbInfo)
+	if dbInfo.OrderUID == "" {
+		return nil, nil
+	}
 
-	return dbInfo, nil
+	b, _ := json.Marshal(dbInfo)
+
+	ordS.cache.Set(key, b)
+
+	return b, nil
 }

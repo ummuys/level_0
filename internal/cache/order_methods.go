@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/ummuys/level_0/internal/models"
 	"github.com/ummuys/level_0/internal/repository"
 )
 
@@ -26,7 +28,7 @@ type orderCache struct {
 	logger   *zerolog.Logger
 }
 
-func NewOrderCache(db repository.OrderDB, chcLog *zerolog.Logger) (OrderCache, error) {
+func NewOrderCache(pCtx context.Context, db repository.OrderDB, chcLog *zerolog.Logger) (OrderCache, error) {
 
 	capStr := os.Getenv("CACHE_CAPACITY")
 	cap, err := strconv.Atoi(capStr)
@@ -40,51 +42,58 @@ func NewOrderCache(db repository.OrderDB, chcLog *zerolog.Logger) (OrderCache, e
 		return nil, fmt.Errorf("cache capacity err: %w", err)
 	}
 
-	return &orderCache{
+	ordC := orderCache{
 		m:        make(map[string]orderNTime),
 		db:       db,
 		cap:      cap,
 		ttlOrder: time.Second * time.Duration(ttlOrderSec),
 		logger:   chcLog,
-	}, nil
+	}
+
+	err = ordC.fillCache(pCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ordC, nil
 }
 
-func (oc *orderCache) Set(orderUID string, orderInfo []byte) {
-	oc.logger.Debug().Msg("call Set")
+func (ordC *orderCache) Set(orderUID string, orderInfo []byte) {
+	ordC.logger.Debug().Msg("call Set")
 	expire := time.Time{}
 
-	if oc.ttlOrder > 0 {
-		expire = time.Now().Add(oc.ttlOrder)
+	if ordC.ttlOrder > 0 {
+		expire = time.Now().Add(ordC.ttlOrder)
 	}
 
 	// Lock - we fill the map
-	oc.mu.Lock()
-	defer oc.mu.Unlock()
+	ordC.mu.Lock()
+	defer ordC.mu.Unlock()
 
-	if len(oc.m) > oc.cap {
-		oc.callClearExprired()
-		for len(oc.m) >= oc.cap {
-			for k := range oc.m {
-				delete(oc.m, k)
+	if len(ordC.m) > ordC.cap {
+		ordC.callClearExprired()
+		for len(ordC.m) >= ordC.cap {
+			for k := range ordC.m {
+				delete(ordC.m, k)
 				break
 			}
 		}
 	}
 
-	oc.m[orderUID] = orderNTime{
+	ordC.m[orderUID] = orderNTime{
 		info:   orderInfo,
 		expire: expire,
 	}
 
 }
 
-func (oc *orderCache) Get(pCtx context.Context, orderUID string) []byte {
-	oc.logger.Debug().Msg("call Get")
+func (ordC *orderCache) Get(pCtx context.Context, orderUID string) []byte {
+	ordC.logger.Debug().Msg("call Get")
 
-	oc.mu.RLock()
-	defer oc.mu.RUnlock()
+	ordC.mu.RLock()
+	defer ordC.mu.RUnlock()
 
-	item, ok := oc.m[orderUID]
+	item, ok := ordC.m[orderUID]
 	if !ok {
 		return nil
 	}
@@ -92,28 +101,59 @@ func (oc *orderCache) Get(pCtx context.Context, orderUID string) []byte {
 	return item.info
 }
 
-func (oc *orderCache) callClearExprired() {
-	oc.logger.Debug().Msg("call CallClearExprired")
-	oc.mu.Lock()
-	oc.clearExpired()
-	oc.mu.Unlock()
+func (ordC *orderCache) callClearExprired() {
+	ordC.logger.Debug().Msg("call CallClearExprired")
+	ordC.mu.Lock()
+	ordC.clearExpired()
+	ordC.mu.Unlock()
 }
 
-func (oc *orderCache) clearExpired() {
-	oc.logger.Debug().Msg("call clearExprired")
+func (ordC *orderCache) clearExpired() {
+	ordC.logger.Debug().Msg("call clearExprired")
 	// ttlOrder == 0 --> no ttl
-	if oc.ttlOrder < 0 {
+	if ordC.ttlOrder < 0 {
 		return
 	}
 
 	// Lock - we delete items in the map
 	now := time.Now()
-	for key, item := range oc.m {
+	for key, item := range ordC.m {
 		if now.After(item.expire) {
-			oc.logger.Info().
+			ordC.logger.Info().
 				Str("key", key).
 				Msg("Time expired")
-			delete(oc.m, key)
+			delete(ordC.m, key)
 		}
 	}
+}
+
+func (ordC *orderCache) fillCache(pCtx context.Context) error {
+	ordC.logger.Debug().Msg("call fillCache")
+
+	orders, err := ordC.db.GetN(pCtx, ordC.cap)
+	if err != nil {
+		return err
+	}
+
+	i := 0
+	for _, oB := range orders {
+
+		//TODO: FIIIIX THIS
+		var o models.OrderData
+		err := json.Unmarshal(oB, &o)
+		if err != nil {
+			return fmt.Errorf("can't unmarshall orders: %w", err)
+		}
+		ordC.Set(o.OrderUID, oB)
+		i++
+	}
+
+	if i == 0 {
+		ordC.logger.Info().Msg("Nothing to load into db")
+	} else {
+		ordC.logger.Info().
+			Int("Amount", i).
+			Msg("Loaded a orders from db")
+	}
+	return nil
 }

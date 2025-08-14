@@ -10,9 +10,10 @@ import (
 	"github.com/ummuys/level_0/internal/web/handlers"
 )
 
-func InitServer(sh handlers.ServerHandler) *http.Server {
+func InitServer(sh handlers.ServerHandler, oh handlers.OrderHandler) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc(HealthEndpoint, sh.Health)
+	mux.HandleFunc(GetOrderEndpoint, oh.Get)
 
 	srv := &http.Server{
 		Addr:              ":" + os.Getenv("APP_PORT"),
