@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/rs/zerolog"
@@ -14,4 +15,5 @@ type OrderHandler interface {
 type orderHandler struct {
 	ordServ service.OrderService
 	logger  *zerolog.Logger
+	pCtx    context.Context
 }

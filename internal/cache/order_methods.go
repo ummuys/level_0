@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/ummuys/level_0/internal/models"
 	"github.com/ummuys/level_0/internal/repository"
 )
 
 type orderNTime struct {
-	info   []byte
+	info   models.OrderData
 	expire time.Time
 }
 
@@ -49,7 +50,7 @@ func NewOrderCache(db repository.OrderDB, chcLog *zerolog.Logger) (OrderCache, e
 	}, nil
 }
 
-func (oc *orderCache) Set(orderUID string, orderInfo []byte) {
+func (oc *orderCache) Set(orderUID string, orderData models.OrderData) {
 	oc.logger.Debug().Msg("call Set")
 	expire := time.Time{}
 
@@ -72,13 +73,13 @@ func (oc *orderCache) Set(orderUID string, orderInfo []byte) {
 	}
 
 	oc.m[orderUID] = orderNTime{
-		info:   orderInfo,
+		info:   orderData,
 		expire: expire,
 	}
 
 }
 
-func (oc *orderCache) Get(pCtx context.Context, orderUID string) []byte {
+func (oc *orderCache) Get(pCtx context.Context, orderUID string) models.OrderData {
 	oc.logger.Debug().Msg("call Get")
 
 	oc.mu.RLock()
@@ -86,7 +87,7 @@ func (oc *orderCache) Get(pCtx context.Context, orderUID string) []byte {
 
 	item, ok := oc.m[orderUID]
 	if !ok {
-		return nil
+		return models.OrderData{}
 	}
 
 	return item.info

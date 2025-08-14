@@ -13,10 +13,9 @@ import (
 )
 
 func processOrder(pCtx context.Context, orderRawData []byte, orderService service.OrderService) error {
-
 	order, err := validation.DecodeOrder(orderRawData)
 
-	if err = orderService.Create(pCtx, orderRawData, order); err != nil {
+	if err = orderService.Create(pCtx, order); err != nil {
 		return err
 	}
 	return nil

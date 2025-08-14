@@ -10,8 +10,8 @@ import (
 )
 
 type OrderService interface {
-	Create(pCtx context.Context, orderRawData []byte, order models.OrderData) error
-	Get(pCtx context.Context, key string) ([]byte, error)
+	Create(pCtx context.Context, order models.OrderData) error
+	Get(pCtx context.Context, key string) (models.OrderData, error)
 }
 
 type orderService struct {

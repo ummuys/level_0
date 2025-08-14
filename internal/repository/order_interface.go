@@ -5,11 +5,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/rs/zerolog"
+	"github.com/ummuys/level_0/internal/models"
 )
 
 type OrderDB interface {
-	Create(pCtx context.Context, orderRawData []byte) error
-	Get(pCtx context.Context, oUID string) ([]byte, error)
+	Create(pCtx context.Context, orderData models.OrderData) error
+	Get(pCtx context.Context, oUID string) (models.OrderData, error)
 	Close() error
 }
 

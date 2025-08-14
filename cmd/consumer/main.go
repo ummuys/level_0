@@ -24,6 +24,7 @@ func main() {
 	mainCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	//TODO: fix this
 	err := godotenv.Load(".env.consumer")
 	if err != nil {
 		log.Fatal("no env file: ", err)
@@ -54,11 +55,11 @@ func main() {
 			Msg("")
 	}
 
-	orderService := service.NewOrderService(orderDB, orderCache, appLog)
-	_ = handlers.NewOrderHandler(orderService, srvLog)
+	orderService := service.NewOrderService(orderDB, orderCache, srvLog)
+	orderHandler := handlers.NewOrderHandler(mainCtx, orderService, srvLog)
 	serverHandler := handlers.NewServerHandler(srvLog)
 
-	srv := web.InitServer(serverHandler)
+	srv := web.InitServer(serverHandler, orderHandler)
 	g, ctx := errgroup.WithContext(mainCtx)
 
 	g.Go(func() error {
@@ -87,8 +88,8 @@ func main() {
 
 	if dbErr != nil || gErr != nil {
 		appLog.Error().
-			Msg("shutdown with errors")
+			Msg("app shutdown with errors")
 	} else {
-		appLog.Info().Msg("server shutdown gracefully")
+		appLog.Info().Msg("app shutdown gracefully")
 	}
 }

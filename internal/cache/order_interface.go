@@ -1,8 +1,12 @@
 package cache
 
-import "context"
+import (
+	"context"
+
+	"github.com/ummuys/level_0/internal/models"
+)
 
 type OrderCache interface {
-	Set(orderUID string, orderInfo []byte)
-	Get(pCtx context.Context, orderUID string) []byte
+	Set(orderUID string, orderData models.OrderData)
+	Get(pCtx context.Context, orderUID string) models.OrderData
 }

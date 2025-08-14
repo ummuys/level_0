@@ -12,27 +12,27 @@ import (
 func ParseLevel() (zerolog.Level, zerolog.Level, zerolog.Level, zerolog.Level, error) {
 	var sErr []string
 
-	appLvlStr, ok := os.LookupEnv("LOG_LEVEL_APP")
+	appLvlStr := os.Getenv("LOG_LEVEL_APP")
 	appLvl, err := zerolog.ParseLevel(appLvlStr)
-	if err != nil || !ok {
+	if err != nil || appLvlStr == "" {
 		sErr = append(sErr, "invalid level for app")
 	}
 
-	srvLvlStr, ok := os.LookupEnv("LOG_LEVEL_SERVER")
-	srvLvl, err := zerolog.ParseLevel(os.Getenv(srvLvlStr))
-	if err != nil || !ok {
+	srvLvlStr := os.Getenv("LOG_LEVEL_SERVER")
+	srvLvl, err := zerolog.ParseLevel(srvLvlStr)
+	if err != nil || srvLvlStr == "" {
 		sErr = append(sErr, "invalid level for server")
 	}
 
-	kfkLvlStr, ok := os.LookupEnv("LOG_LEVEL_KAFKA")
+	kfkLvlStr := os.Getenv("LOG_LEVEL_KAFKA")
 	kfkLvl, err := zerolog.ParseLevel(kfkLvlStr)
-	if err != nil || !ok {
+	if err != nil || kfkLvlStr == "" {
 		sErr = append(sErr, "invalid level for kafka")
 	}
 
-	cchLvlStr, ok := os.LookupEnv("LOG_LEVEL_CACHE")
+	cchLvlStr := os.Getenv("LOG_LEVEL_CACHE")
 	cchLvl, err := zerolog.ParseLevel(cchLvlStr)
-	if err != nil || !ok {
+	if err != nil || cchLvlStr == "" {
 		sErr = append(sErr, "invalid level for cache")
 	}
 

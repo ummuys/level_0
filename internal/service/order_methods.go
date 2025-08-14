@@ -19,14 +19,14 @@ func NewOrderService(db repository.OrderDB, cache cache.OrderCache, logger *zero
 	}
 }
 
-func (ordS *orderService) Create(pCtx context.Context, orderRawData []byte, order models.OrderData) error {
+func (ordS *orderService) Create(pCtx context.Context, order models.OrderData) error {
 
 	UID, err := validation.Validate(order)
 	if err != nil {
 		return fmt.Errorf("validate err: %w", err)
 	}
 
-	err = ordS.db.Create(pCtx, orderRawData)
+	err = ordS.db.Create(pCtx, order)
 	if err != nil {
 		ordS.logger.Error().
 			Err(err).
@@ -34,16 +34,16 @@ func (ordS *orderService) Create(pCtx context.Context, orderRawData []byte, orde
 		return err
 	}
 
-	ordS.cache.Set(UID, orderRawData)
+	ordS.cache.Set(UID, order)
 
 	return nil
 }
 
-func (ordS *orderService) Get(pCtx context.Context, key string) ([]byte, error) {
+func (ordS *orderService) Get(pCtx context.Context, key string) (models.OrderData, error) {
 
 	cacheInfo := ordS.cache.Get(pCtx, key)
 
-	if cacheInfo != nil {
+	if cacheInfo.OrderUID != "" {
 		return cacheInfo, nil
 	}
 
@@ -52,7 +52,7 @@ func (ordS *orderService) Get(pCtx context.Context, key string) ([]byte, error) 
 		ordS.logger.Error().
 			Err(err).
 			Msg("db err")
-		return nil, err
+		return models.OrderData{}, err
 	}
 
 	ordS.cache.Set(key, dbInfo)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/rs/zerolog"
+	"github.com/ummuys/level_0/internal/models"
 )
 
 func NewOrderDatabase(logger *zerolog.Logger) (OrderDB, error) {
@@ -52,7 +53,7 @@ func (odb *odbPg) Close() error {
 	return nil
 }
 
-func (odb *odbPg) Create(pCtx context.Context, orderRawData []byte) (err error) {
+func (odb *odbPg) Create(pCtx context.Context, orderData models.OrderData) (err error) {
 	odb.logger.Debug().Msg("call Create method in OrderDB")
 
 	txCtx, txCancel := context.WithTimeout(pCtx, 7*time.Second)
@@ -72,16 +73,21 @@ func (odb *odbPg) Create(pCtx context.Context, orderRawData []byte) (err error) 
 		}
 	}()
 
-	query := `select orders.insert_order($1::jsonb)`
+	b, n := createBatch(&orderData)
+	bSend := tx.SendBatch(txCtx, b)
+	defer bSend.Close()
 
-	_, err = tx.Exec(txCtx, query, orderRawData)
-	if err != nil {
-		err = fmt.Errorf("can't exec a query: %w", err)
-		return
+	for i := 0; i < n; i++ {
+		_, err = bSend.Exec()
+		if err != nil {
+			err = fmt.Errorf("batch err: %w", err)
+			return
+		}
 	}
 
 	if err = txCtx.Err(); err != nil {
-		return fmt.Errorf("tx deadline: %w", err)
+		err = fmt.Errorf("tx deadline: %w", err)
+		return
 	}
 
 	cmtCtx, cmtCancel := context.WithTimeout(context.Background(), time.Second*3)
@@ -95,7 +101,25 @@ func (odb *odbPg) Create(pCtx context.Context, orderRawData []byte) (err error) 
 	return nil
 }
 
-func (odb *odbPg) Get(pCtx context.Context, oUID string) ([]byte, error) {
+func (odb *odbPg) Get(pCtx context.Context, oUID string) (models.OrderData, error) {
 	odb.logger.Debug().Msg("call Get method in OrderDB")
-	return nil, nil
+
+	ctx, cancel := context.WithTimeout(pCtx, time.Second*5)
+	defer cancel()
+
+	query := `
+	SELECT * FROM orders.info
+	JOIN orders.payments ON info.order_uid = payments.order_uid
+	JOIN orders.deliveries ON info.order_uid = deliveries.order_uid
+	JOIN orders.items ON info.order_uid = items.order_uid
+	WHERE order_uid = $1;
+	`
+
+	orderData := models.OrderData{}
+	err := odb.conn.QueryRow(ctx, query, oUID).Scan(&orderData)
+	if err != nil {
+		return models.OrderData{}, fmt.Errorf("can't exec a query row: %w", err)
+	}
+
+	return orderData, nil
 }
