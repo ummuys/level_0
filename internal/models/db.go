@@ -15,8 +15,8 @@ type OrderDataDb struct {
 	DateCreated       time.Time `json:"date_created" db:"date_created"`
 	OofShard          string    `json:"oof_shard" db:"oof_shard"`
 
-	DeliveryData
-	PaymentData
+	DeliveryData // we need nesting because pgxscan.Select won’t see the fields.
+	PaymentData  // and again
 
 	Items []ItemData `json:"items"    db:"-"`
 }
