@@ -11,7 +11,7 @@ import (
 )
 
 const orderJSON = `{
-   "order_uid": "adsfasasdffffasdfadsfdf",
+   "order_uid": "adsfasasdffffasdfadsfff",
    "track_number": "WBILMTESTTRACK",
    "entry": "WBIL",
    "delivery": {

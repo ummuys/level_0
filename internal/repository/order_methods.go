@@ -15,8 +15,10 @@ import (
 
 func NewOrderDatabase(logger *zerolog.Logger) (OrderDB, error) {
 
-	//TODO:: change CTX
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
+	logger.Info().Msg("Waiting for the creation of database")
+	<-time.After(time.Second * 10)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
 	defer cancel()
 
 	var (
@@ -29,7 +31,7 @@ func NewOrderDatabase(logger *zerolog.Logger) (OrderDB, error) {
 		if err == nil {
 			break
 		}
-		time.Sleep(time.Second)
+		time.Sleep(500 * time.Millisecond)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("can't connect to db: %w", err)
@@ -75,9 +77,9 @@ func (odb *odbPg) Create(pCtx context.Context, orderRawData []byte) (err error) 
 		}
 	}()
 
-	query := `select orders.insert_order($1::jsonb)`
+	query := `select orders.insert_order($1::jsonb, $2::timestamptz)`
 
-	_, err = tx.Exec(txCtx, query, orderRawData)
+	_, err = tx.Exec(txCtx, query, orderRawData, time.Now())
 	if err != nil {
 		err = fmt.Errorf("can't exec a query: %w", err)
 		return
@@ -166,13 +168,13 @@ func (odb *odbPg) GetN(pCtx context.Context, n int) ([]models.OrderDataDb, error
 		return nil, err
 	}
 
-	for _, o := range orders {
+	for i, o := range orders {
 		items, err := odb.scanItems(ctx, o.OrderUID)
 		if err != nil {
 			return []models.OrderDataDb{}, err
 		}
 		o.Items = append(o.Items, items...)
-		orders = append(orders, o)
+		orders[i].Items = o.Items
 	}
 
 	return orders, nil

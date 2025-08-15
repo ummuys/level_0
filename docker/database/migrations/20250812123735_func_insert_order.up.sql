@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION orders.insert_order(data jsonb)
+CREATE OR REPLACE FUNCTION orders.insert_order(data jsonb, inserted_at timestamptz)
 RETURNS text
 LANGUAGE plpgsql
 SECURITY INVOKER
@@ -9,10 +9,10 @@ AS $$
     BEGIN
         -- main table (info)
         INSERT INTO orders.info (order_uid, track_number, entry, locale, internal_signature,
-                                 customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard)
+                                 customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard, inserted_at)
         VALUES (data->>'order_uid', data->>'track_number', data->>'entry', data->>'locale', data->>'internal_signature',
                 data->>'customer_id', data->>'delivery_service', data->>'shardkey',
-                (data->>'sm_id')::int, (data->>'date_created')::timestamptz, data->>'oof_shard')
+                (data->>'sm_id')::int, (data->>'date_created')::timestamptz, data->>'oof_shard', inserted_at)
         RETURNING order_uid INTO oUID;
 
 

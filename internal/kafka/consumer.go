@@ -80,19 +80,16 @@ func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.Or
 			}
 		}
 
-		//TODO: сделать красивый коммит
-		var hadErr bool
+		//TODO: REFACTOR THIS
 		for _, rec := range fetches.Records() {
 			logger.Info().
 				Str("key", string(rec.Key)).
 				Msg("catch new order")
 			if err := processOrder(pCtx, rec.Value, orderService); err != nil {
-				hadErr = true
 				logger.Error().
 					Err(err).
 					Str("key", string(rec.Key)).
 					Msg("can't create a order")
-
 			} else {
 				logger.Info().
 					Str("key", string(rec.Key)).
@@ -101,13 +98,6 @@ func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.Or
 
 		}
 
-		if !hadErr {
-			if err := cl.CommitUncommittedOffsets(pCtx); err != nil {
-				logger.Error().
-					Err(err).
-					Msg("commit failed")
-			}
-		}
 	}
 
 	fCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

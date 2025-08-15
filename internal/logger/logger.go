@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/rs/zerolog"
 )
@@ -57,6 +58,12 @@ func InitLogger(path string) (*zerolog.Logger, *zerolog.Logger, *zerolog.Logger,
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
+
+	loc, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		panic(err)
+	}
+	time.Local = loc
 
 	appLog := baseLog.With().Str("component", "app").Logger().Level(appLvl)
 	kfkLog := baseLog.With().Str("component", "kafka").Logger().Level(kfkLvl)

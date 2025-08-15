@@ -42,6 +42,11 @@ func NewOrderCache(pCtx context.Context, db repository.OrderDB, chcLog *zerolog.
 		return nil, fmt.Errorf("cache capacity err: %w", err)
 	}
 
+	chcLog.Debug().
+		Str("cap", capStr).
+		Str("ttlOrder", ttlOrderSecStr).
+		Msg("env for cache")
+
 	ordC := orderCache{
 		m:        make(map[string]orderNTime),
 		db:       db,
@@ -70,8 +75,8 @@ func (ordC *orderCache) Set(orderUID string, orderInfo []byte) {
 	ordC.mu.Lock()
 	defer ordC.mu.Unlock()
 
-	if len(ordC.m) > ordC.cap {
-		ordC.callClearExprired()
+	if len(ordC.m) >= ordC.cap {
+		ordC.clearExpired()
 		for len(ordC.m) >= ordC.cap {
 			for k := range ordC.m {
 				delete(ordC.m, k)
@@ -98,20 +103,15 @@ func (ordC *orderCache) Get(pCtx context.Context, orderUID string) []byte {
 		return nil
 	}
 
-	return item.info
-}
-
-func (ordC *orderCache) callClearExprired() {
-	ordC.logger.Debug().Msg("call CallClearExprired")
-	ordC.mu.Lock()
-	ordC.clearExpired()
-	ordC.mu.Unlock()
+	b := make([]byte, len(item.info))
+	copy(b, item.info)
+	return b
 }
 
 func (ordC *orderCache) clearExpired() {
 	ordC.logger.Debug().Msg("call clearExprired")
 	// ttlOrder == 0 --> no ttl
-	if ordC.ttlOrder < 0 {
+	if ordC.ttlOrder == 0 {
 		return
 	}
 

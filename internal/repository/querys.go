@@ -68,7 +68,10 @@ func createQueryGetN(oUID string, n int) (string, []any) {
 		query += fmt.Sprintf(" WHERE i.order_uid = $%d", i)
 		i++
 	}
-	if n > 1 {
+
+	query += fmt.Sprintf(" ORDER BY i.inserted_at DESC")
+
+	if n > 0 {
 		args = append(args, n)
 		query += fmt.Sprintf(" LIMIT $%d", i)
 		i++
