@@ -1,48 +1,13 @@
 package logger
 
 import (
-	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/ummuys/level_0/internal/validation"
 )
-
-func ParseLevel() (zerolog.Level, zerolog.Level, zerolog.Level, zerolog.Level, error) {
-	var sErr []string
-
-	appLvlStr := os.Getenv("LOG_LEVEL_APP")
-	appLvl, err := zerolog.ParseLevel(appLvlStr)
-	if err != nil || appLvlStr == "" {
-		sErr = append(sErr, "invalid level for app")
-	}
-
-	srvLvlStr := os.Getenv("LOG_LEVEL_SERVER")
-	srvLvl, err := zerolog.ParseLevel(srvLvlStr)
-	if err != nil || srvLvlStr == "" {
-		sErr = append(sErr, "invalid level for server")
-	}
-
-	kfkLvlStr := os.Getenv("LOG_LEVEL_KAFKA")
-	kfkLvl, err := zerolog.ParseLevel(kfkLvlStr)
-	if err != nil || kfkLvlStr == "" {
-		sErr = append(sErr, "invalid level for kafka")
-	}
-
-	cchLvlStr := os.Getenv("LOG_LEVEL_CACHE")
-	cchLvl, err := zerolog.ParseLevel(cchLvlStr)
-	if err != nil || cchLvlStr == "" {
-		sErr = append(sErr, "invalid level for cache")
-	}
-
-	if len(sErr) > 0 {
-		return 0, 0, 0, 0, fmt.Errorf(strings.Join(sErr, ", "))
-	}
-
-	return appLvl, srvLvl, kfkLvl, cchLvl, nil
-}
 
 func InitLogger(path string) (*zerolog.Logger, *zerolog.Logger, *zerolog.Logger, *zerolog.Logger, error) {
 
@@ -54,7 +19,7 @@ func InitLogger(path string) (*zerolog.Logger, *zerolog.Logger, *zerolog.Logger,
 
 	baseLog := zerolog.New(multiWriter).With().Timestamp().Logger()
 
-	appLvl, srvlvl, kfkLvl, cchLvl, err := ParseLevel()
+	appLvl, srvlvl, kfkLvl, cchLvl, err := validation.ParseLogLevels()
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}

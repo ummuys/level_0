@@ -3,27 +3,32 @@ package http
 import (
 	"context"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/ummuys/level_0/internal/validation"
 	"github.com/ummuys/level_0/internal/web/handlers"
 )
 
-func InitServer(sh handlers.ServerHandler, oh handlers.OrderHandler) *http.Server {
+func InitServer(sh handlers.ServerHandler, oh handlers.OrderHandler) (*http.Server, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc(HealthEndpoint, sh.Health)
 	mux.HandleFunc(GetOrderEndpoint, oh.Get)
 
+	port, err := validation.ParseSrvEnv()
+	if err != nil {
+		return nil, err
+	}
+
 	srv := &http.Server{
-		Addr:              ":" + os.Getenv("APP_PORT"),
+		Addr:              ":" + port,
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,
 		IdleTimeout:       60 * time.Second, // TODO: настроить время тайм-аутов и мб подкинуть еще
 	}
-	return srv
+	return srv, nil
 }
 
 func RunServer(ctx context.Context, srv *http.Server, logger *zerolog.Logger) error {

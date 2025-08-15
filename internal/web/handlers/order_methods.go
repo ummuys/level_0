@@ -18,6 +18,8 @@ func NewOrderHandler(orderService service.OrderService, logger *zerolog.Logger) 
 
 // TODO: WRITE THIS vvvvvvvvv
 func (oh *orderHandler) Get(w http.ResponseWriter, r *http.Request) {
+	oh.logger.Debug().Msg("Call Get method in OrderHandler")
+
 	w.Header().Set("Content-Type", "application/json")
 
 	order_uid := r.PathValue("order_uid")
@@ -40,7 +42,7 @@ func (oh *orderHandler) Get(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("order didn't found"))
 
-		oh.logger.Info().
+		oh.logger.Warn().
 			Str("order_uid", order_uid).
 			Msg("order didn't found")
 		return

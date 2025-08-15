@@ -3,7 +3,7 @@ package kafka
 import (
 	"context"
 	"errors"
-	"os"
+	"strconv"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -26,9 +26,11 @@ func processOrder(pCtx context.Context, orderRawData []byte, orderService servic
 }
 
 func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.OrderService) error {
-	broker := os.Getenv("KAFKA_BROKER")
-	topic := os.Getenv("KAFKA_TOPIC")
-	group := os.Getenv("KAFKA_GROUP")
+
+	broker, topic, group, dlqTopic, err := validation.ParseKfkEnv()
+	if err != nil {
+		return err
+	}
 
 	if broker == "" || topic == "" || group == "" {
 		logger.Error().
@@ -80,7 +82,6 @@ func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.Or
 			}
 		}
 
-		//TODO: REFACTOR THIS
 		for _, rec := range fetches.Records() {
 			logger.Info().
 				Str("key", string(rec.Key)).
@@ -90,6 +91,7 @@ func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.Or
 					Err(err).
 					Str("key", string(rec.Key)).
 					Msg("can't create a order")
+				toDLQ(pCtx, logger, cl, dlqTopic, rec, err)
 			} else {
 				logger.Info().
 					Str("key", string(rec.Key)).
@@ -106,4 +108,44 @@ func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.Or
 		logger.Warn().Err(err).Msg("final commit failed")
 	}
 	return nil
+}
+
+func toDLQ(pCtx context.Context, logger *zerolog.Logger, cl *kgo.Client, dlqTopic string, rec *kgo.Record, err error) {
+
+	hdrs := append([]kgo.RecordHeader{}, rec.Headers...) // копия
+	hdrs = append(hdrs,
+		kgo.RecordHeader{Key: "error", Value: []byte(err.Error())},
+		kgo.RecordHeader{Key: "source_topic", Value: []byte(rec.Topic)},
+		kgo.RecordHeader{Key: "source_partition", Value: []byte(strconv.Itoa(int(rec.Partition)))},
+		kgo.RecordHeader{Key: "source_offset", Value: []byte(strconv.FormatInt(rec.Offset, 10))},
+		kgo.RecordHeader{Key: "failed_at", Value: []byte(time.Now().UTC().Format(time.RFC3339))},
+	)
+
+	dlqRec := &kgo.Record{
+		Topic:     dlqTopic,
+		Key:       rec.Key,
+		Value:     rec.Value, // оригинальный payload
+		Headers:   hdrs,
+		Timestamp: time.Now(),
+	}
+
+	ctx, cancel := context.WithTimeout(pCtx, 5*time.Second)
+	defer cancel()
+
+	if perr := cl.ProduceSync(ctx, dlqRec).FirstErr(); perr != nil {
+		logger.Error().Err(perr).
+			Str("key", string(rec.Key)).
+			Msg("failed to produce to DLQ; will not commit offset (record will be retried)")
+		return
+	}
+
+	if cerr := cl.CommitRecords(pCtx, rec); cerr != nil {
+		logger.Error().
+			Err(cerr).
+			Msg("failed to commit after DLQ")
+	} else {
+		logger.Warn().
+			Str("key", string(rec.Key)).
+			Msg("sent to DLQ and committed")
+	}
 }

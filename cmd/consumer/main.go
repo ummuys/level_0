@@ -58,7 +58,13 @@ func main() {
 	orderHandler := handlers.NewOrderHandler(orderService, srvLog)
 	serverHandler := handlers.NewServerHandler(srvLog)
 
-	srv := web.InitServer(serverHandler, orderHandler)
+	srv, err := web.InitServer(serverHandler, orderHandler)
+	if err != nil {
+		appLog.Fatal().
+			Err(err).
+			Msg("")
+	}
+
 	g, ctx := errgroup.WithContext(mainCtx)
 
 	g.Go(func() error {

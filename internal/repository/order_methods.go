@@ -123,39 +123,9 @@ func (odb *odbPg) Get(pCtx context.Context, oUID string) (models.OrderDataDb, er
 	return o, nil
 }
 
-// func (odb *odbPg) GetN(pCtx context.Context, n int) ([]models.OrderData, error) {
-// 	ctx, cancel := context.WithTimeout(pCtx, time.Second*10)
-// 	defer cancel()
-
-// 	query, args := createQueryGetN("", n)
-
-// 	rows, err := odb.conn.Query(ctx, query, args...)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("can't exec query: %w", err)
-// 	}
-// 	defer rows.Close()
-
-// 	var orders []models.OrderData
-
-// 	for rows.Next() {
-// 		o, err := pgx.RowToStructByName[models.OrderData](rows)
-// 		if err != nil {
-// 			return nil, fmt.Errorf("can't scan in query rows: %w", err)
-// 		}
-
-// 		items, err := odb.scanItems(ctx, o.OrderUID)
-// 		if err != nil {
-// 			return []models.OrderData{}, err
-// 		}
-
-// 		o.Items = append(o.Items, items...)
-// 		orders = append(orders, o)
-// 	}
-
-// 	return orders, nil
-// }
-
 func (odb *odbPg) GetN(pCtx context.Context, n int) ([]models.OrderDataDb, error) {
+	odb.logger.Debug().Msg("call GetN method in OrderDB")
+
 	ctx, cancel := context.WithTimeout(pCtx, time.Second*10)
 	defer cancel()
 

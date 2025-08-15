@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -30,28 +28,13 @@ type orderCache struct {
 
 func NewOrderCache(pCtx context.Context, db repository.OrderDB, chcLog *zerolog.Logger) (OrderCache, error) {
 
-	capStr := os.Getenv("CACHE_CAPACITY")
-	cap, err := strconv.Atoi(capStr)
-	if err != nil {
-		return nil, fmt.Errorf("cache capacity err: %w", err)
-	}
-
-	ttlOrderSecStr := os.Getenv("TTL_ORDER")
-	ttlOrderSec, err := strconv.Atoi(ttlOrderSecStr)
-	if err != nil {
-		return nil, fmt.Errorf("cache capacity err: %w", err)
-	}
-
-	chcLog.Debug().
-		Str("cap", capStr).
-		Str("ttlOrder", ttlOrderSecStr).
-		Msg("env for cache")
+	cap, ttlOrder, err := validation.ParseCchEnv()
 
 	ordC := orderCache{
 		m:        make(map[string]orderNTime),
 		db:       db,
 		cap:      cap,
-		ttlOrder: time.Second * time.Duration(ttlOrderSec),
+		ttlOrder: time.Second * time.Duration(ttlOrder),
 		logger:   chcLog,
 	}
 
@@ -64,7 +47,8 @@ func NewOrderCache(pCtx context.Context, db repository.OrderDB, chcLog *zerolog.
 }
 
 func (ordC *orderCache) Set(orderUID string, orderInfo []byte) {
-	ordC.logger.Debug().Msg("call Set")
+	ordC.logger.Debug().Msg("call Set method in OrderCache")
+
 	expire := time.Time{}
 
 	if ordC.ttlOrder > 0 {
@@ -93,7 +77,7 @@ func (ordC *orderCache) Set(orderUID string, orderInfo []byte) {
 }
 
 func (ordC *orderCache) Get(pCtx context.Context, orderUID string) []byte {
-	ordC.logger.Debug().Msg("call Get")
+	ordC.logger.Debug().Msg("call Get method in OrderCache")
 
 	ordC.mu.RLock()
 	defer ordC.mu.RUnlock()
@@ -109,7 +93,8 @@ func (ordC *orderCache) Get(pCtx context.Context, orderUID string) []byte {
 }
 
 func (ordC *orderCache) clearExpired() {
-	ordC.logger.Debug().Msg("call clearExprired")
+	ordC.logger.Debug().Msg("call clearExpired method in OrderCache")
+
 	// ttlOrder == 0 --> no ttl
 	if ordC.ttlOrder == 0 {
 		return
@@ -128,7 +113,7 @@ func (ordC *orderCache) clearExpired() {
 }
 
 func (ordC *orderCache) fillCache(pCtx context.Context) error {
-	ordC.logger.Debug().Msg("call fillCache")
+	ordC.logger.Debug().Msg("call fillCache method in OrderCache")
 
 	oDB, err := ordC.db.GetN(pCtx, ordC.cap)
 	if err != nil {

@@ -19,7 +19,7 @@ func DecodeOrder(b []byte) (models.OrderData, error) {
 	return od, nil
 }
 
-func Validate(od models.OrderData) (string, error) {
+func ValidateOrder(od models.OrderData) (string, error) {
 	var errs []string
 	add := func(path, format string, args ...any) {
 		errs = append(errs, fmt.Sprintf("%s: %s", path, fmt.Sprintf(format, args...)))
