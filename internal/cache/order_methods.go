@@ -11,6 +11,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/ummuys/level_0/internal/repository"
+	"github.com/ummuys/level_0/internal/validation"
 )
 
 type orderNTime struct {
@@ -129,10 +130,13 @@ func (ordC *orderCache) clearExpired() {
 func (ordC *orderCache) fillCache(pCtx context.Context) error {
 	ordC.logger.Debug().Msg("call fillCache")
 
-	orders, err := ordC.db.GetN(pCtx, ordC.cap)
+	oDB, err := ordC.db.GetN(pCtx, ordC.cap)
 	if err != nil {
 		return err
 	}
+
+	//OrderDataDb -> OrderData
+	orders := validation.ConvertSlice(oDB)
 
 	i := 0
 	for _, o := range orders {

@@ -54,7 +54,10 @@ func (ordS *orderService) Get(pCtx context.Context, key string) ([]byte, error) 
 		return nil, nil
 	}
 
-	b, _ := json.Marshal(dbInfo)
+	//OrderDataDb -> OrderData
+	order := validation.Convert(dbInfo)
+
+	b, _ := json.Marshal(order)
 
 	ordS.cache.Set(key, b)
 

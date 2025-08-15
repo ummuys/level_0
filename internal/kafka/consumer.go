@@ -15,6 +15,9 @@ import (
 func processOrder(pCtx context.Context, orderRawData []byte, orderService service.OrderService) error {
 
 	order, err := validation.DecodeOrder(orderRawData)
+	if err != nil {
+		return err
+	}
 
 	if err = orderService.Create(pCtx, orderRawData, order); err != nil {
 		return err
@@ -41,6 +44,7 @@ func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.Or
 		kgo.ConsumerGroup(group),
 		kgo.ConsumeTopics(topic),
 		kgo.DisableAutoCommit(),
+		kgo.FetchIsolationLevel(kgo.ReadCommitted()),
 	)
 
 	if err != nil {

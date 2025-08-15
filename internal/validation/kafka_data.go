@@ -79,3 +79,41 @@ func Validate(od models.OrderData) (string, error) {
 	}
 	return od.OrderUID, nil
 }
+
+func Convert(order models.OrderDataDb) models.OrderData {
+	out := models.OrderData{
+		OrderUID:          order.OrderUID,
+		TrackNumber:       order.TrackNumber,
+		Entry:             order.Entry,
+		Locale:            order.Locale,
+		InternalSignature: order.InternalSignature,
+		CustomerID:        order.CustomerID,
+		DeliveryService:   order.DeliveryService,
+		ShardKey:          order.ShardKey,
+		SmID:              order.SmID,
+		DateCreated:       order.DateCreated,
+		OofShard:          order.OofShard,
+
+		Delivery: order.DeliveryData,
+		Payment:  order.PaymentData,
+	}
+
+	if order.Items != nil {
+		items := make([]models.ItemData, len(order.Items))
+		copy(items, order.Items)
+		out.Items = items
+	} else {
+		out.Items = []models.ItemData{}
+	}
+
+	return out
+
+}
+
+func ConvertSlice(orders []models.OrderDataDb) []models.OrderData {
+	out := make([]models.OrderData, len(orders))
+	for i, o := range orders {
+		out[i] = Convert(o)
+	}
+	return out
+}
