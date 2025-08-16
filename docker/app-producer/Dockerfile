@@ -9,7 +9,9 @@ RUN go mod download
 
 # Только нужный код
 COPY cmd/producer/ ./cmd/producer/
-COPY .env.producer ./
+COPY internal/testdata/ ./internal/testdata/
 
 # Сборка бинаря
 RUN go build -o /app/producer ./cmd/producer
+
+ENTRYPOINT ["/app/producer"]

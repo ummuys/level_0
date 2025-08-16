@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/ummuys/level_0/internal/validation"
+	config "github.com/ummuys/level_0/internal/config/server"
 	"github.com/ummuys/level_0/internal/web/handlers"
 )
 
@@ -15,7 +15,7 @@ func InitServer(sh handlers.ServerHandler, oh handlers.OrderHandler) (*http.Serv
 	mux.HandleFunc(HealthEndpoint, sh.Health)
 	mux.HandleFunc(GetOrderEndpoint, oh.Get)
 
-	port, err := validation.ParseSrvEnv()
+	port, err := config.ParseServerEnv()
 	if err != nil {
 		return nil, err
 	}

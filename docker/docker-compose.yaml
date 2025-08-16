@@ -1,5 +1,6 @@
 services:  
 
+  #APP
   app:
     container_name: app
     build:
@@ -7,9 +8,15 @@ services:
       dockerfile: docker/app-consumer/Dockerfile
     ports:
       - 1337:8080
+    env_file:
+     - ../.env.consumer
     depends_on:
-      - migration
-      - kafka
+      migration:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+      kafka-init-topics:
+        condition: service_completed_successfully
 
 
   #APP-PRODUCER
@@ -18,16 +25,13 @@ services:
     build:
       context: ..
       dockerfile: docker/app-producer/Dockerfile
+    env_file:
+     - ../.env.producer
     depends_on:
-      - migration
-      - kafka-init-topics
-    entrypoint: >
-      sh -c '
-        echo Wait kafka
-        sleep 5;
-        /app/producer
-      '
-  
+      kafka:
+        condition: service_healthy
+      kafka-init-topics:
+        condition: service_completed_successfully
 
   #KAFKA
   kafka:
@@ -56,25 +60,34 @@ services:
 
       KAFKA_CFG_LOG_DIRS: /var/lib/kafka/data
 
+    healthcheck:
+      test:  ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: on-failure
+
     volumes:
         - kafka-data:/var/lib/kafka/data
 
   #CREATE TOPICS
   kafka-init-topics:
     image: apache/kafka:3.7.0
-    container_name: init_topics
+    container_name: init-topics
     entrypoint: ["/bin/bash","-lc"]
     command: ["/usr/local/bin/init-topics.sh"]
     volumes:
       - ./kafka/init-topics.sh:/usr/local/bin/init-topics.sh:ro
     restart: "no"
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
 
 
   # DATABASE
   database:
-    image: postgres:latest
+    image: postgres:17
     container_name: pgsql-database
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -84,8 +97,15 @@ services:
       - ${PGSQL_HOST_PORT}:5432
     volumes:
       - postgres_lvl_0_data:/var/lib/postgresql/data
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
 
-  # Migration
+  # MIGRATION
   migration:
     image: migrate/migrate
     container_name: db-migrate
@@ -93,14 +113,11 @@ services:
       DB_URL: ${DB_URL}
     volumes:
       - ./database/migrations:/migrations
-    entrypoint: >
-      sh -c '
-        Wait pgsql
-        sleep 5;
-        migrate -path /migrations -database "$DB_URL" up
-      '
+    command: ["-path", "/migrations", "-database","${DB_URL}", "up"]
     depends_on:
-      - database
+      database:
+        condition: service_healthy
+    restart: "no"
 
 
 volumes:

@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/joho/godotenv"
 	"github.com/ummuys/level_0/internal/cache"
 	"github.com/ummuys/level_0/internal/kafka"
 	"github.com/ummuys/level_0/internal/logger"
@@ -24,43 +23,46 @@ func main() {
 	mainCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	err := godotenv.Load(".env.consumer")
-	if err != nil {
-		log.Fatal("no env file: ", err)
-	}
+	// err := godotenv.Load(".env.consumer")
+	// if err != nil {
+	// 	log.Fatal("no env file: ", err)
+	// }
 
-	appLog, kfkLog, srvLog, cchLog, err := logger.InitLogger(os.Getenv("LOGS_PATH"))
+	loggers, err := logger.InitLogger(os.Getenv("LOGS_PATH"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	appLog.Info().Msg("--------------------------------------------------")
-	appLog.Info().Msg("-------------- LEVEL 0 BY UMMUYS -----------------")
-	appLog.Info().Msg("--------------------------------------------------")
+	loggers.AppLog.Info().Msg("--------------------------------------------------")
+	loggers.AppLog.Info().Msg("-------------- LEVEL 0 BY UMMUYS -----------------")
+	loggers.AppLog.Info().Msg("--------------------------------------------------")
 
-	orderDB, err := repository.NewOrderDatabase(appLog)
+	orderDB, err := repository.NewOrderDatabase(loggers.DbLog)
 	if err != nil {
-		appLog.Fatal().
+		loggers.AppLog.Fatal().
 			Err(err).
+			Str("evt", "db.ready.fail").
 			Msg("")
 
 	}
-	appLog.Info().Msg("database initialized")
+	loggers.DbLog.Info().
+		Str("evt", "db.ready.ok").
+		Msg("")
 
-	orderCache, err := cache.NewOrderCache(mainCtx, orderDB, cchLog)
+	orderCache, err := cache.NewOrderCache(mainCtx, orderDB, loggers.CchLog)
 	if err != nil {
-		appLog.Fatal().
+		loggers.AppLog.Fatal().
 			Err(err).
 			Msg("")
 	}
 
-	orderService := service.NewOrderService(mainCtx, orderDB, orderCache, appLog)
-	orderHandler := handlers.NewOrderHandler(orderService, srvLog)
-	serverHandler := handlers.NewServerHandler(srvLog)
+	orderService := service.NewOrderService(mainCtx, orderDB, orderCache, loggers.SvcLog)
+	orderHandler := handlers.NewOrderHandler(orderService, loggers.SrvLog)
+	serverHandler := handlers.NewServerHandler(loggers.SrvLog)
 
 	srv, err := web.InitServer(serverHandler, orderHandler)
 	if err != nil {
-		appLog.Fatal().
+		loggers.AppLog.Fatal().
 			Err(err).
 			Msg("")
 	}
@@ -68,33 +70,33 @@ func main() {
 	g, ctx := errgroup.WithContext(mainCtx)
 
 	g.Go(func() error {
-		appLog.Info().Msg("start the server")
-		return web.RunServer(ctx, srv, srvLog)
+		loggers.AppLog.Info().Msg("server.start")
+		return web.RunServer(ctx, srv, loggers.SrvLog)
 	})
 
 	g.Go(func() error {
-		appLog.Info().Msg("start the kafka")
-		return kafka.Kafka(ctx, kfkLog, orderService)
+		loggers.AppLog.Info().Msg("kafka.start")
+		return kafka.Kafka(ctx, loggers.KfkLog, orderService)
 	})
 
 	gErr := g.Wait()
 	if gErr != nil && !errors.Is(gErr, context.Canceled) {
-		appLog.Error().
+		loggers.AppLog.Error().
 			Err(gErr).
 			Msg("")
 	}
 
 	dbErr := orderDB.Close()
 	if dbErr != nil {
-		appLog.Error().
+		loggers.AppLog.Error().
 			Err(dbErr).
-			Msg("database close error")
+			Msg("db.close.fail")
 	}
 
 	if dbErr != nil || gErr != nil {
-		appLog.Error().
-			Msg("shutdown with errors")
+		loggers.AppLog.Error().
+			Msg("shutdown.fail")
 	} else {
-		appLog.Info().Msg("server shutdown gracefully")
+		loggers.AppLog.Info().Msg("shutdown.ok")
 	}
 }

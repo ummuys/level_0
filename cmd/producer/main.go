@@ -6,17 +6,16 @@ import (
 	"os"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/twmb/franz-go/pkg/kgo"
-	"github.com/ummuys/level_0/cmd/producer/jsons"
+	"github.com/ummuys/level_0/internal/testdata/jsons"
 )
 
 func main() {
 
-	err := godotenv.Load(".env.producer")
-	if err != nil {
-		log.Fatal("no env file: ", err)
-	}
+	// err := godotenv.Load(".env.producer")
+	// if err != nil {
+	// 	log.Fatal("no env file: ", err)
+	// }
 
 	topic := os.Getenv("KAFKA_TOPIC")
 	broker := os.Getenv("KAFKA_BROKER")
@@ -50,8 +49,8 @@ func send(cl *kgo.Client, topic string, orders []string) {
 		}
 
 		rec := &kgo.Record{
+			// Ключ не нужен
 			Topic: topic,
-			Key:   []byte("order-key"),
 			Value: []byte(ord),
 			Headers: []kgo.RecordHeader{
 				{Key: "content-type", Value: []byte("application/json")},

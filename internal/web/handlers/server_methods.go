@@ -13,8 +13,14 @@ func NewServerHandler(logger *zerolog.Logger) ServerHandler {
 }
 
 func (sr *serverHandler) Health(w http.ResponseWriter, r *http.Request) {
-	sr.logger.Debug().Msg("Call Get method in ServerHandler")
+	sr.logger.Debug().
+		Str("evt", "handler.health").
+		Msg("")
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+
+	sr.logger.Debug().
+		Str("evt", "handler.health.ok").
+		Msg("")
 }

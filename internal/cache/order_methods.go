@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	config "github.com/ummuys/level_0/internal/config/cache"
 	"github.com/ummuys/level_0/internal/repository"
 	"github.com/ummuys/level_0/internal/validation"
 )
@@ -27,14 +28,16 @@ type orderCache struct {
 }
 
 func NewOrderCache(pCtx context.Context, db repository.OrderDB, chcLog *zerolog.Logger) (OrderCache, error) {
-
-	cap, ttlOrder, err := validation.ParseCchEnv()
+	cchEnv, err := config.ParseCacheEnv()
+	if err != nil {
+		return nil, err
+	}
 
 	ordC := orderCache{
 		m:        make(map[string]orderNTime),
 		db:       db,
-		cap:      cap,
-		ttlOrder: time.Second * time.Duration(ttlOrder),
+		cap:      cchEnv.Capacity,
+		ttlOrder: cchEnv.TTLOrder,
 		logger:   chcLog,
 	}
 
@@ -47,7 +50,9 @@ func NewOrderCache(pCtx context.Context, db repository.OrderDB, chcLog *zerolog.
 }
 
 func (ordC *orderCache) Set(orderUID string, orderInfo []byte) {
-	ordC.logger.Debug().Msg("call Set method in OrderCache")
+	ordC.logger.Debug().
+		Str("evt", "cache.set").
+		Msg("")
 
 	expire := time.Time{}
 
@@ -77,7 +82,9 @@ func (ordC *orderCache) Set(orderUID string, orderInfo []byte) {
 }
 
 func (ordC *orderCache) Get(pCtx context.Context, orderUID string) []byte {
-	ordC.logger.Debug().Msg("call Get method in OrderCache")
+	ordC.logger.Debug().
+		Str("evt", "cache.get").
+		Msg("")
 
 	ordC.mu.RLock()
 	defer ordC.mu.RUnlock()
@@ -93,7 +100,9 @@ func (ordC *orderCache) Get(pCtx context.Context, orderUID string) []byte {
 }
 
 func (ordC *orderCache) clearExpired() {
-	ordC.logger.Debug().Msg("call clearExpired method in OrderCache")
+	ordC.logger.Debug().
+		Str("evt", "cache.clearExpired").
+		Msg("")
 
 	// ttlOrder == 0 --> no ttl
 	if ordC.ttlOrder == 0 {
@@ -113,7 +122,9 @@ func (ordC *orderCache) clearExpired() {
 }
 
 func (ordC *orderCache) fillCache(pCtx context.Context) error {
-	ordC.logger.Debug().Msg("call fillCache method in OrderCache")
+	ordC.logger.Debug().
+		Str("evt", "cache.fillCache").
+		Msg("")
 
 	oDB, err := ordC.db.GetN(pCtx, ordC.cap)
 	if err != nil {
@@ -134,11 +145,11 @@ func (ordC *orderCache) fillCache(pCtx context.Context) error {
 	}
 
 	if i == 0 {
-		ordC.logger.Info().Msg("Nothing to load into db")
+		ordC.logger.Info().Msg("db.load.empty")
 	} else {
 		ordC.logger.Info().
 			Int("Amount", i).
-			Msg("Loaded a orders from db")
+			Msg("db.load.ok")
 	}
 	return nil
 }

@@ -5,16 +5,21 @@ CONSUMER_APP_PATH=cmd/consumer/main.go
 
 DOCKER_COMPOSE_PATH=docker/docker-compose.yaml
 
-GR=scripts/greetings.sh
-N1=scripts/n1.sh
-N2=scripts/n2.sh
-N3=scripts/n3.sh
-N4=scripts/n4.sh
+SCRIPTS_PATH=scripts
+
+GR=$(SCRIPTS_PATH)/greetings.sh
+CE=$(SCRIPTS_PATH)/check_env.sh
+N1=$(SCRIPTS_PATH)/n1.sh
+N2=$(SCRIPTS_PATH)/n2.sh
+N3=$(SCRIPTS_PATH)/n3.sh
+N4=$(SCRIPTS_PATH)/n4.sh
 
 .PHONY: for-inspectors
 
 for-inspectors:
-	@chmod +x $(GR) $(N1) $(N2) $(N3) $(N4)
+	@chmod +x $(CE) $(GR) $(N1) $(N2) $(N3) $(N4)
+
+	@./$(CE)
 
 	@./$(GR)
 	docker compose -f $(DOCKER_COMPOSE_PATH) up -d

@@ -21,7 +21,9 @@ func NewOrderService(pCtx context.Context, db repository.OrderDB, cache cache.Or
 }
 
 func (ordS *orderService) Create(pCtx context.Context, orderRawData []byte, order models.OrderData) error {
-	ordS.logger.Debug().Msg("Call Create method in OrderService")
+	ordS.logger.Debug().
+		Str("evt", "svc.create").
+		Msg("")
 
 	UID, err := validation.ValidateOrder(order)
 	if err != nil {
@@ -39,7 +41,9 @@ func (ordS *orderService) Create(pCtx context.Context, orderRawData []byte, orde
 }
 
 func (ordS *orderService) Get(pCtx context.Context, key string) ([]byte, error) {
-	ordS.logger.Debug().Msg("Call Get method in OrderService")
+	ordS.logger.Debug().
+		Str("evt", "svc.get").
+		Msg("")
 
 	cacheInfo := ordS.cache.Get(pCtx, key)
 

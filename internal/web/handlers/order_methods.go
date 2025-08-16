@@ -18,7 +18,9 @@ func NewOrderHandler(orderService service.OrderService, logger *zerolog.Logger) 
 
 // TODO: WRITE THIS vvvvvvvvv
 func (oh *orderHandler) Get(w http.ResponseWriter, r *http.Request) {
-	oh.logger.Debug().Msg("Call Get method in OrderHandler")
+	oh.logger.Debug().
+		Str("evt", "handler.Get").
+		Msg("")
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -26,6 +28,9 @@ func (oh *orderHandler) Get(w http.ResponseWriter, r *http.Request) {
 	if order_uid == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("order_uid is requared"))
+		oh.logger.Debug().
+			Str("evt", "handler.get.fail").
+			Msg("")
 		return
 	}
 
@@ -33,11 +38,16 @@ func (oh *orderHandler) Get(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	info, err := oh.ordServ.Get(ctx, order_uid)
+
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
+		oh.logger.Debug().
+			Str("evt", "handler.get.fail").
+			Msg("")
 		return
 	}
+
 	if info == nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("order didn't found"))
@@ -45,6 +55,10 @@ func (oh *orderHandler) Get(w http.ResponseWriter, r *http.Request) {
 		oh.logger.Warn().
 			Str("order_uid", order_uid).
 			Msg("order didn't found")
+
+		oh.logger.Debug().
+			Str("evt", "handler.get.fail").
+			Msg("")
 		return
 	}
 
@@ -53,4 +67,7 @@ func (oh *orderHandler) Get(w http.ResponseWriter, r *http.Request) {
 	oh.logger.Info().
 		Str("order_uid", order_uid).
 		Msg("order founds")
+	oh.logger.Debug().
+		Str("evt", "handler.get.ok").
+		Msg("")
 }

@@ -8,43 +8,35 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/twmb/franz-go/pkg/kgo"
+	config "github.com/ummuys/level_0/internal/config/kafka"
 	"github.com/ummuys/level_0/internal/service"
 	"github.com/ummuys/level_0/internal/validation"
 )
 
-func processOrder(pCtx context.Context, orderRawData []byte, orderService service.OrderService) error {
+func processOrder(pCtx context.Context, orderRawData []byte, orderService service.OrderService) (string, error) {
 
 	order, err := validation.DecodeOrder(orderRawData)
 	if err != nil {
-		return err
+		return order.OrderUID, err
 	}
 
 	if err = orderService.Create(pCtx, orderRawData, order); err != nil {
-		return err
+		return order.OrderUID, err
 	}
-	return nil
+	return order.OrderUID, nil
 }
 
 func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.OrderService) error {
 
-	broker, topic, group, dlqTopic, err := validation.ParseKfkEnv()
+	kfkEnv, err := config.ParseKafkaEnv()
 	if err != nil {
 		return err
 	}
 
-	if broker == "" || topic == "" || group == "" {
-		logger.Error().
-			Str("KAFKA_BROKER", broker).
-			Str("KAFKA_TOPIC", topic).
-			Str("KAFKA_GROUP", group).
-			Msg("missing required env vars")
-		return errors.New("kafka: KAFKA_BROKER, KAFKA_TOPIC, KAFKA_GROUP are required")
-	}
-
 	cl, err := kgo.NewClient(
-		kgo.SeedBrokers(broker),
-		kgo.ConsumerGroup(group),
-		kgo.ConsumeTopics(topic),
+		kgo.SeedBrokers(kfkEnv.Broker),
+		kgo.ConsumerGroup(kfkEnv.Group),
+		kgo.ConsumeTopics(kfkEnv.Topic),
 		kgo.DisableAutoCommit(),
 		kgo.FetchIsolationLevel(kgo.ReadCommitted()),
 	)
@@ -59,9 +51,9 @@ func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.Or
 	defer cl.Close()
 
 	logger.Info().
-		Str("broker", broker).
-		Str("topic", topic).
-		Str("group", group).
+		Str("broker", kfkEnv.Broker).
+		Str("topic", kfkEnv.Topic).
+		Str("group", kfkEnv.Group).
 		Msg("listening")
 
 	for {
@@ -83,19 +75,35 @@ func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.Or
 		}
 
 		for _, rec := range fetches.Records() {
-			logger.Info().
-				Str("key", string(rec.Key)).
-				Msg("catch new order")
-			if err := processOrder(pCtx, rec.Value, orderService); err != nil {
+
+			logger.Debug().
+				Str("evt", "consumer.new_message").
+				Msg("")
+
+			if orderUID, err := processOrder(pCtx, rec.Value, orderService); err != nil {
+
+				logger.Debug().
+					Str("evt", "order.create.fail").
+					Str("order_uid", orderUID).
+					Msg("")
+
 				logger.Error().
 					Err(err).
-					Str("key", string(rec.Key)).
-					Msg("can't create a order")
-				toDLQ(pCtx, logger, cl, dlqTopic, rec, err)
+					Msg("can't create an order")
+
+				logger.Debug().
+					Str("evt", "consumer.start.dlq").
+					Msg("")
+
+				toDLQ(pCtx, logger, cl, orderUID, kfkEnv.DlqTopic, rec, err)
+
 			} else {
+
 				logger.Info().
-					Str("key", string(rec.Key)).
-					Msg("order successfuly created")
+					Str("evt", "order.create.ok").
+					Str("orderUID", orderUID).
+					Msg("")
+
 			}
 
 		}
@@ -110,7 +118,7 @@ func Kafka(pCtx context.Context, logger *zerolog.Logger, orderService service.Or
 	return nil
 }
 
-func toDLQ(pCtx context.Context, logger *zerolog.Logger, cl *kgo.Client, dlqTopic string, rec *kgo.Record, err error) {
+func toDLQ(pCtx context.Context, logger *zerolog.Logger, cl *kgo.Client, orderUID string, dlqTopic string, rec *kgo.Record, err error) {
 
 	hdrs := append([]kgo.RecordHeader{}, rec.Headers...) // копия
 	hdrs = append(hdrs,
@@ -123,7 +131,6 @@ func toDLQ(pCtx context.Context, logger *zerolog.Logger, cl *kgo.Client, dlqTopi
 
 	dlqRec := &kgo.Record{
 		Topic:     dlqTopic,
-		Key:       rec.Key,
 		Value:     rec.Value, // оригинальный payload
 		Headers:   hdrs,
 		Timestamp: time.Now(),
@@ -134,18 +141,31 @@ func toDLQ(pCtx context.Context, logger *zerolog.Logger, cl *kgo.Client, dlqTopi
 
 	if perr := cl.ProduceSync(ctx, dlqRec).FirstErr(); perr != nil {
 		logger.Error().Err(perr).
-			Str("key", string(rec.Key)).
+			Str("order_uid", orderUID).
 			Msg("failed to produce to DLQ; will not commit offset (record will be retried)")
+		logger.Debug().
+			Str("evt", "consumer.start.dlq.fail").
+			Str("order_uid", orderUID).
+			Msg("")
 		return
 	}
 
 	if cerr := cl.CommitRecords(pCtx, rec); cerr != nil {
 		logger.Error().
 			Err(cerr).
+			Str("order_uid", orderUID).
 			Msg("failed to commit after DLQ")
+		logger.Debug().
+			Str("evt", "consumer.start.dlq.fail").
+			Str("order_uid", orderUID).
+			Msg("")
 	} else {
 		logger.Warn().
-			Str("key", string(rec.Key)).
+			Str("order_uid", orderUID).
 			Msg("sent to DLQ and committed")
+		logger.Debug().
+			Str("order_uid", orderUID).
+			Str("evt", "consumer.start.dlq.ok").
+			Msg("")
 	}
 }

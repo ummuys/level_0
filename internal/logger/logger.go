@@ -6,34 +6,46 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/ummuys/level_0/internal/validation"
+	config "github.com/ummuys/level_0/internal/config/logger"
 )
 
-func InitLogger(path string) (*zerolog.Logger, *zerolog.Logger, *zerolog.Logger, *zerolog.Logger, error) {
+func InitLogger(path string) (*config.Loggers, error) {
+
+	zerolog.TimestampFunc = func() time.Time { return time.Now().UTC() }
+	zerolog.DurationFieldUnit = time.Millisecond
+	zerolog.DurationFieldInteger = true
+	zerolog.TimeFieldFormat = time.RFC3339Nano
+
+	cw := zerolog.ConsoleWriter{
+		Out:        os.Stdout,
+		TimeFormat: time.RFC3339Nano,
+	}
 
 	//STD-OUT
 	file := initLogFile(path)
-	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "15:04:05"}
 
-	multiWriter := io.MultiWriter(file, consoleWriter)
+	multiWriter := io.MultiWriter(file, cw)
 
 	baseLog := zerolog.New(multiWriter).With().Timestamp().Logger()
 
-	appLvl, srvlvl, kfkLvl, cchLvl, err := validation.ParseLogLevels()
+	logLevels, err := config.ParseLogLevels()
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
 
-	loc, err := time.LoadLocation("Europe/Moscow")
-	if err != nil {
-		panic(err)
-	}
-	time.Local = loc
+	appLog := baseLog.With().Str("component", "app").Logger().Level(logLevels.AppLvl)
+	kfkLog := baseLog.With().Str("component", "kfk").Logger().Level(logLevels.KfkLvl)
+	srvLog := baseLog.With().Str("component", "srv").Logger().Level(logLevels.SrvLvl)
+	cchLog := baseLog.With().Str("component", "cache").Logger().Level(logLevels.CchLvl)
+	svcLog := baseLog.With().Str("component", "svc").Logger().Level(logLevels.SrvLvl)
+	dbLog := baseLog.With().Str("component", "db").Logger().Level(logLevels.DbLvl)
 
-	appLog := baseLog.With().Str("component", "app").Logger().Level(appLvl)
-	kfkLog := baseLog.With().Str("component", "kafka").Logger().Level(kfkLvl)
-	srvLog := baseLog.With().Str("component", "server").Logger().Level(srvlvl)
-	cchLog := baseLog.With().Str("component", "cache").Logger().Level(cchLvl)
-
-	return &appLog, &kfkLog, &srvLog, &cchLog, nil
+	return &config.Loggers{
+		AppLog: &appLog,
+		KfkLog: &kfkLog,
+		SrvLog: &srvLog,
+		CchLog: &cchLog,
+		SvcLog: &svcLog,
+		DbLog:  &dbLog,
+	}, nil
 }

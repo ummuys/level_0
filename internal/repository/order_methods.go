@@ -15,10 +15,11 @@ import (
 
 func NewOrderDatabase(logger *zerolog.Logger) (OrderDB, error) {
 
-	logger.Info().Msg("Waiting for the creation of database")
-	<-time.After(time.Second * 10)
+	logger.Info().
+		Str("evt", "db.ready.wait").
+		Msg("")
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
 	var (
@@ -26,7 +27,7 @@ func NewOrderDatabase(logger *zerolog.Logger) (OrderDB, error) {
 		err  error
 	)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 5; i++ {
 		conn, err = pgx.Connect(ctx, os.Getenv("DB_LINK"))
 		if err == nil {
 			break
@@ -58,7 +59,9 @@ func (odb *odbPg) Close() error {
 }
 
 func (odb *odbPg) Create(pCtx context.Context, orderRawData []byte) (err error) {
-	odb.logger.Debug().Msg("call Create method in OrderDB")
+	odb.logger.Debug().
+		Str("evt", "db.create").
+		Msg("")
 
 	txCtx, txCancel := context.WithTimeout(pCtx, 7*time.Second)
 	defer txCancel()
@@ -101,7 +104,9 @@ func (odb *odbPg) Create(pCtx context.Context, orderRawData []byte) (err error) 
 }
 
 func (odb *odbPg) Get(pCtx context.Context, oUID string) (models.OrderDataDb, error) {
-	odb.logger.Debug().Msg("call Get method in OrderDB")
+	odb.logger.Debug().
+		Str("evt", "db.get").
+		Msg("")
 
 	ctx, cancel := context.WithTimeout(pCtx, time.Second*5)
 	defer cancel()
@@ -124,7 +129,9 @@ func (odb *odbPg) Get(pCtx context.Context, oUID string) (models.OrderDataDb, er
 }
 
 func (odb *odbPg) GetN(pCtx context.Context, n int) ([]models.OrderDataDb, error) {
-	odb.logger.Debug().Msg("call GetN method in OrderDB")
+	odb.logger.Debug().
+		Str("evt", "db.getN").
+		Msg("")
 
 	ctx, cancel := context.WithTimeout(pCtx, time.Second*10)
 	defer cancel()
