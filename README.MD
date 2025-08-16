@@ -27,61 +27,6 @@ Swagger-документация:
 
 ---
 
-## ⚙️ Переменные окружения
-
-Пример `.env` файла для самого приложение:
-
-```
-#<-------------------------->
-#PostgreSql Conn
-
-DB_URL="postgres://username:password@database:db_port/db_name"
-
-#<-------------------------->
-
-
-#<-------------------------->
-#App Conn
-IP=ip
-PORT=port
-#<-------------------------->
-
-
-```
-
-Пример `.env` файла для docker-compose (postgres):
-
-```
-#<-------------------------->
-#PostgreSql
-
-POSTGRES_USER=username
-POSTGRES_PASSWORD=password
-POSTGRES_DB=db_name
-POSTGRES_PORT=db_port
-
-#<-------------------------->
-
-#<-------------------------->
-#App
-
-APP_PORT=app_port
-TZ=tz (example: Europe/Moscow)
-LOG_LEVEL=lvl
-#<-------------------------->
-
-
-#<-------------------------->
-#Migrate
-
-DB_URL="postgres://username:password@database:db_port/db_name?sslmode=disable"
-
-#<-------------------------->
-
-```
-
----
-
 ## 📂 Структура проекта
 
 ```
@@ -206,21 +151,6 @@ DB_URL="postgres://username:password@database:db_port/db_name?sslmode=disable"
 
 - Логи хранятся в каталоге `logs/`
 - Один файл — на каждый день
-
-## ℹ️ Уровни логирования
-
-```
-const (
-    TraceLevel = iota  // 0
-    DebugLevel         // 1
-    InfoLevel          // 2
-    WarnLevel          // 3
-    ErrorLevel         // 4
-    FatalLevel         // 5
-    PanicLevel         // 6
-    Disabled           // 7 (отключает всё)
-)
-```
 
 ---
 
