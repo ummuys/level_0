@@ -6,14 +6,18 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	httpSwagger "github.com/swaggo/http-swagger"
 	config "github.com/ummuys/level_0/internal/config/server"
 	"github.com/ummuys/level_0/internal/web/handlers"
+
+	_ "github.com/ummuys/level_0/docs"
 )
 
 func InitServer(sh handlers.ServerHandler, oh handlers.OrderHandler) (*http.Server, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc(HealthEndpoint, sh.Health)
 	mux.HandleFunc(GetOrderEndpoint, oh.Get)
+	mux.HandleFunc("/swagger/", httpSwagger.WrapHandler)
 
 	port, err := config.ParseServerEnv()
 	if err != nil {

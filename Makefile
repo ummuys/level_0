@@ -17,7 +17,7 @@ N4=$(SCRIPTS_PATH)/n4.sh
 .PHONY: for-inspectors
 
 for-inspectors:
-	@chmod +x $(CE) $(GR) $(N1) $(N2) $(N3) $(N4)
+	@chmod +x $(CE) $(GR) $(N1) $(N2)
 
 	@./$(CE)
 
@@ -29,18 +29,11 @@ for-inspectors:
 
 	@./$(N2)
 
-# 	FIX THIS
-
-	@./$(N3)
-	@docker logs --tail 4 app 
-
-	@./$(N4)
-	@docker logs --tail 7 app 
-
-
-
-
 #------------------------------#
+
+#FOR DEV
+
+
 .PHONY: up-all-containers down-all-containers up-database-container up-kafka-container down-database-container down-kafka-container
 
 down-all-containers: 
@@ -61,9 +54,8 @@ down-database-container:
 down-kafka-container:
 	docker compose -f $(DOCKER_COMPOSE_PATH) down kafka
 
-#------------------------------#
-#FOR DEV. DON'T USE 
-docker-restart-all:
+remove-all:
 	docker compose -f $(DOCKER_COMPOSE_PATH) down -v
 	docker image rm docker-app docker-app-producer
+	rm .env.consumer .env.producer docker/.env
 #------------------------------#
